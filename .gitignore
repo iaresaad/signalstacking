@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+
+# Local Claude settings (machine-specific permission allowlist)
+.claude/settings.local.json
+
+# Private: real Trumpet product/CRM usage data (keep the .example template only)
+.claude/signal-stacking/trumpet-usage-data.md
+
+# Private: your real target-account list (keep accounts.example.csv only)
+accounts/accounts.csv
+accounts/accounts.txt
+
+# Generated prospect briefs — contain real people, contact info, and outreach targeting.
+# Keep these out of the repo (especially if it ever goes public). Index is generated too.
+research/
