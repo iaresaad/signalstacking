@@ -55,7 +55,7 @@ In chat, surface the reusable intel, not just the email:
 1. **Signals used** (the 3–5 that drove the angle, with dates)
 2. **Stacked angles** (each = the 2–3 signals it combines → the problem → the bridge)
 3. **Target contact** (+ alternates)
-4. **The drafted email**
+4. **The drafted email** — always print it IN FULL, verbatim, in chat. Never truncate it or replace it with "see file"; a seller needs to copy it directly.
 This lets a seller reuse the signals/angles even if they rewrite the email.
 
 ---
