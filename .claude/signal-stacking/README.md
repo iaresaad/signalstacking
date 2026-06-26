@@ -6,17 +6,21 @@ a drafted email, and saves a brief to `research/<company>.md`.
 
 ## Run it
 ```
-/signal-stacking <company name>
+/signal-stacking <company name>     # single company
+/signal-stacking <domain>           # e.g. vanta.com (future Slack/signup shape)
+/signal-stacking batch              # reads accounts/accounts.csv, one brief per row
 ```
-e.g. `/signal-stacking Vanta`. Default email target is the economic buyer (CRO/VP Sales); the
-brief also lists champion + influencer contacts so you can pick another entry point.
+Default email target is the economic buyer (CRO/VP Sales); the brief also lists champion +
+influencer contacts so you can pick another entry point. Bulk mode is resume-safe: it skips
+accounts already in `research/` and logs failures in `research/_index.md`.
 
 ## Files
 | File | Purpose | Edit when |
 |------|---------|-----------|
 | `.claude/commands/signal-stacking.md` | The orchestrator skill | rarely |
-| `.claude/signal-stacking/seller-context.md` | What you sell (Trumpet) — drives every angle | positioning/product changes |
-| `.claude/signal-stacking/trumpet-usage-data.md` | **Optional** product-usage data for the proof line | you have sign-up data for a prospect |
+| `.claude/signal-stacking/seller-context.md` | What you sell — drives every angle (copy from `seller-context.example.md`; gitignored) | positioning/product changes |
+| `.claude/signal-stacking/trumpet-usage-data.md` | **Optional** product-usage data for the proof line (copy from `.example`; gitignored) | you have sign-up data for a prospect |
+| `accounts/accounts.csv` | Target-account list for bulk runs (copy from `.example`; gitignored) | per campaign |
 
 ## Signals-first by design
 The skill runs fully on public signals + **peer social proof** and needs no Trumpet data.
