@@ -38,13 +38,17 @@ Per company, parallel Exa subagents gather: (A) business signals, (B) hiring/gro
 | File | Purpose | Edit when |
 |------|---------|-----------|
 | `.claude/commands/signal-stacking.md` | The skill | rarely |
-| `.claude/signal-stacking/seller-context.md` | What you sell (Trumpet) — drives every angle | positioning changes |
+| `.claude/signal-stacking/seller-context.md` | What you sell — drives every angle (copy from `seller-context.example.md`; gitignored) | positioning changes |
 | `.claude/signal-stacking/trumpet-usage-data.md` | **Optional** product-usage data for the proof line | you have sign-up data (gitignored) |
 | `accounts/accounts.csv` | Your target-account list for bulk runs | per campaign (gitignored) |
 
+## Example output
+
+See [`examples/sample-brief.md`](examples/sample-brief.md) for a full brief + email on a fictional company, so you can see the output format without any real prospect data.
+
 ## What's not committed
 
-`research/` (generated briefs with real contacts), `accounts/accounts.csv` (your target list), and `trumpet-usage-data.md` (private CRM data) are gitignored. Only the tool, config templates, and examples are tracked.
+`research/` (generated briefs with real contacts), `accounts/accounts.csv` (your target list), `seller-context.md` (your real positioning), and `trumpet-usage-data.md` (private CRM data) are gitignored. Only the tool, config templates, and examples are tracked.
 
 ## Roadmap
 

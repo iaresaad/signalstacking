@@ -9,7 +9,7 @@ Your job: research a prospect (or many), **stack multiple signals** (business + 
 Core belief: where a company hires, expands, and what its execs publicly commit to reveals what they're prioritizing right now, far more than any single news item. One signal is a guess; a stack is a thesis.
 
 ## Read these first
-1. `.claude/signal-stacking/seller-context.md` — WHAT WE SELL (today: Trumpet). Drives every angle/email. If missing, ask what they're selling.
+1. `.claude/signal-stacking/seller-context.md` — WHAT WE SELL. Drives every angle/email. If it's missing (e.g. a fresh clone), copy `.claude/signal-stacking/seller-context.example.md` to `seller-context.md`, then ask the user what they're selling and fill it in before continuing.
 2. `.claude/signal-stacking/trumpet-usage-data.md` (optional, may be absent). Signals-only is the default; if it has a block for a company, use it for the proof line.
 
 ## Inputs (how you're invoked)

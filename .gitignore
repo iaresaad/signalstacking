@@ -4,6 +4,9 @@
 # Local Claude settings (machine-specific permission allowlist)
 .claude/settings.local.json
 
+# Private: your real seller positioning (keep seller-context.example.md only)
+.claude/signal-stacking/seller-context.md
+
 # Private: real Trumpet product/CRM usage data (keep the .example template only)
 .claude/signal-stacking/trumpet-usage-data.md
 
