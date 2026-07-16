@@ -30,3 +30,25 @@
 
 ## Product mirroring (relate us to the prospect's OWN product)
 Always try one analogy: "the way <our product> does X is similar to how <prospect> does <their core thing>."
+
+## In-market scoring — tiering every account (EDIT: replace with your product's signals)
+
+Two axes. **FIT** comes from technographics — edit `scoring/trumpet-signals.json` with YOUR competitors and complementary tools, then agents run `python3 scoring/score.py "<tools>"`. **TIMING** comes from behavioral signals — replace this table with the triggers that mean someone buys YOUR product soon:
+
+| Timing signal | Weight |
+|---|---|
+| <new exec who owns your budget line, in seat < 6 months> | 3 |
+| <exec publicly naming the pain you solve> | 3 |
+| <hiring wave in the function you sell into> | 2 |
+| <funding round < 6 months> | 2 |
+| <negative signal, e.g. layoffs> | −2 |
+
+**Tier matrix** (timing × fit): timing ≥ 5 + fit high/medium → 🔥 In-market now; timing 2–4 → 🟡 Warming; else ⚪ Monitor. Fit-high with no timing stays 🟡 (watch list).
+
+**Escalation rules:** define 2–3 signal interactions that force a tier up or down (e.g. competitor-vulnerable + new exec → force 🔥; competitor adopted <6 months → force ⚪ with a re-check date). Suppression-list hits (`accounts/do-not-contact.csv`) always skip.
+
+## Personas — branch the 3-touch sequence
+
+- **Economic buyer:** <title> — business-outcome language.
+- **Influencer:** <title> — workflow-pain language.
+- **Champion:** <title> — peer-to-peer language.

@@ -1,0 +1,5 @@
+company,domain,reason,until
+Acme Existing Customer,acme.example,current customer,
+Beta Open Opp,beta.example,open opportunity — owned by J. Doe,
+Gamma Lost Deal,gamma.example,closed-lost 2026-05 — cooloff,2026-11-01
+Delta Fresh Competitor,delta.example,adopted competitor DSR 2026-04 — suppressed,2027-01-01

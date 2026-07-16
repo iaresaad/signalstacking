@@ -1,6 +1,6 @@
-company,domain,target,notes
-Northwind Cloud,northwind.example,Dana Whitfield,CRO
-Contoso Logistics,contoso.example,,VP Sales — no public CRO
-Globex Security,globex.example,,
-Initech Payments,initech.example,Pat Lawson,Head of Revenue
-Umbrella Analytics,umbrella.example,,EMEA expansion
+company,domain,target,tools,notes
+Northwind Cloud,northwind.example,Dana Whitfield,"Gong, Salesloft, Salesforce",CRO
+Contoso Logistics,contoso.example,,"HubSpot, PandaDoc",VP Sales — no public CRO
+Globex Security,globex.example,,GetAccept,incumbent DSR — check renewal window
+Initech Payments,initech.example,Pat Lawson,,Head of Revenue
+Umbrella Analytics,umbrella.example,,"Outreach, ZoomInfo, Loom, Chili Piper",EMEA expansion

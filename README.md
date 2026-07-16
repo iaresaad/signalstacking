@@ -1,6 +1,8 @@
 # Signal Stacking
 
-An investigative sales-prospecting agent for [Claude Code](https://claude.com/claude-code), powered by the **Exa MCP**. Give it a company (or a list of hundreds), and it researches each one, **stacks their signals** (business events + hiring/growth + exec priorities + named people) into reusable outreach angles, and drafts a problem-first cold email. Built for selling **Trumpet** today; the seller is swappable.
+An in-market scoring + investigative prospecting agent for [Claude Code](https://claude.com/claude-code) (and OpenAI Codex), powered by the **Exa MCP**. Give it a company — or a list of hundreds — and it tells you **who is in-market to buy right now**, why, who to contact, and hands your AEs a ready-to-send 3-touch sequence. Built for selling **[Trumpet](https://sendtrumpet.com)** today; the seller is swappable in one file.
+
+Core belief: one signal is a guess; a **stack** is a thesis. Where a company hires, what it deploys, and what its execs publicly commit to reveals what it's buying next.
 
 ## Quick start
 
@@ -11,45 +13,69 @@ An investigative sales-prospecting agent for [Claude Code](https://claude.com/cl
 # a domain (the shape a future Slack/signup trigger will use)
 /signal-stacking vanta.com
 
-# bulk — reads accounts/accounts.csv (or .txt) and writes a brief per company
+# bulk — reads accounts/accounts.csv, tiers every account, builds the dashboard
 /signal-stacking batch
+
+# re-score a stale list without redoing fresh research
+/signal-stacking batch refresh
 ```
 
-Each run writes a brief to `research/<company>.md` and, in bulk mode, an index to `research/_index.md`. Results in chat always surface the **signals and angles used** so a seller can reuse them even if they rewrite the email.
+Every batch ends with two AE-facing deliverables (both local, nothing leaves your machine):
 
-## Bulk input
+- **`research/dashboard.html`** — open in any browser. Tier tiles (🔥 In-market now / 🟡 Warming / ⚪ Monitor), sortable + searchable account table, click a row for the full brief with **one-click copy on every touch**. Built for non-technical teammates: you run the batch, they work the list.
+- **`research/outreach-export.csv`** — company, tier, contact (+email when your account list has one), why-now line, all three touches. Imports into Outreach/Salesloft/Instantly or back into Clay.
 
-Drop your target accounts into `accounts/accounts.csv` (gitignored). See `accounts/accounts.example.csv`:
+## How it decides who's in-market
 
-```csv
-company,domain,target,notes
-Ramp,ramp.com,,VP Sales — no public CRO
-Vanta,vanta.com,Stevie Case,CRO
+Two axes, computed per account:
+
+- **FIT** (are they the kind of company that buys?) — deterministic technographic scoring, zero tokens: `scoring/score.py` matches the account's tool stack against `scoring/trumpet-signals.json` — DSR competitors (bucketed: pure-DSR = switch play, enablement suites = coexistence play, proposal tools = scope-expansion play), complementary revtech, an ignore list, a stack-density bonus. Domain-first matching, no substring false-positives, capped so tooling alone can't mint a hot tier. `python3 scoring/score.py --test` runs its self-tests.
+- **TIMING** (are they buying *now*?) — behavioral signals weighted in `seller-context.md`: new revenue leader in seat, AE/SDR hiring waves, funding, upmarket pushes, exec quotes naming the pain. Escalation rules capture interactions (competitor-vulnerable + new CRO → 🔥; competitor adopted <6 months ago → suppressed with a re-check date).
+
+Every tier is shown **with its arithmetic** in the brief, so a seller can trust it or challenge it.
+
+## Architecture (token- and rate-limit-efficient by design)
+
+```
+orchestrator (your context stays clean — it only ever sees compact summaries)
+  │
+  ├─ wave 1..n: prospect-triage agents      ← cheap model, ≤3 searches each,
+  │             (round-robin across every    kills the dead half of the list
+  │              configured Exa key)         for ~5% of the tokens
+  │
+  ├─ wave 1..n: prospect-researcher agents  ← survivors only: 4-lens deep dive,
+  │             (same key rotation,          scoring, brief + 3-touch sequence,
+  │              WebSearch failover)         written to disk immediately
+  │
+  └─ scripts/build_dashboard.py             ← dashboard + sequencer export
 ```
 
-Only `company` is required. Bulk mode is **resume-safe**: it skips accounts already in `research/`, so a 100+ run can be restarted after any interruption, and it logs ambiguous/failed accounts in the index instead of stopping.
+- **N-key Exa rotation:** configure any number of Exa MCP servers (`exa`, `exa2`, `exa3`, …) — each key is its own rate-limit bucket; waves scale ~5 concurrent agents per key. Add a key: `claude mcp add --transport http exa3 "https://mcp.exa.ai/mcp?exaApiKey=YOUR_KEY"`.
+- **Provider failover:** an agent that keeps hitting Exa rate limits falls back to the runtime's native web search (Claude's WebSearch on Claude Code, OpenAI's on Codex). Batches degrade to a slower lane instead of stalling.
+- **Resume-safe + fresh-aware:** briefs stamp their research date; re-runs skip anything <14 days old, `refresh` searches only the delta. A 500-account run can die and restart without losing a token.
+- **Two runtimes:** `.claude/` for Claude Code, `AGENTS.md` + `.codex/` for Codex — same logic, whichever subscription has headroom.
 
-## How it works
+## Example output
 
-Per company, parallel Exa subagents gather: (A) business signals, (B) hiring/growth triggers, (C) the revenue leader + named champion/buyer/influencer, (D) exec voice + strategic milestone statements. A synthesis step clusters them into 2–3-signal **stacked angles**, then drafts a problem-first email. Every external claim carries a dated source URL; nothing is fabricated.
+**[`examples/briefs/`](examples/briefs/)** — twelve real briefs from a live batch run (Backblaze, OpenAI, Anthropic, Apollo, Demandbase, …), sanitized for publication: real dated signals, real public execs, verbatim sourced quotes, and the outreach angle each stack produced. Also [`examples/sample-brief.md`](examples/sample-brief.md) for the current full format (tier arithmetic + 3-touch sequence) on a fictional company.
 
 ## Configure
 
 | File | Purpose | Edit when |
 |------|---------|-----------|
-| `.claude/commands/signal-stacking.md` | The skill | rarely |
-| `.claude/signal-stacking/seller-context.md` | What you sell — drives every angle (copy from `seller-context.example.md`; gitignored) | positioning changes |
-| `.claude/signal-stacking/trumpet-usage-data.md` | **Optional** product-usage data for the proof line | you have sign-up data (gitignored) |
-| `accounts/accounts.csv` | Your target-account list for bulk runs | per campaign (gitignored) |
-
-## Example output
-
-See [`examples/sample-brief.md`](examples/sample-brief.md) for a full brief + email on a fictional company, so you can see the output format without any real prospect data.
+| `.claude/signal-stacking/seller-context.md` | What you sell, ICP, timing weights, tier matrix, personas (copy from `.example`; gitignored) | positioning changes |
+| `scoring/trumpet-signals.json` | Competitor + technographic fit data | the competitive map changes (`--test` after) |
+| `accounts/accounts.csv` | Target list — raw Clay exports work unchanged | per campaign (gitignored) |
+| `accounts/do-not-contact.csv` | Suppression: customers, open opps, cooloffs (copy from `.example`; gitignored) | always current |
+| `.claude/signal-stacking/trumpet-usage-data.md` | Optional product-usage data for proof lines | you have signup data (gitignored) |
+| `.claude/commands/signal-stacking.md` | Orchestration | rarely |
+| `.claude/agents/*.md` | Triage + deep-dive methodology, email rules | rarely |
 
 ## What's not committed
 
-`research/` (generated briefs with real contacts), `accounts/accounts.csv` (your target list), `seller-context.md` (your real positioning), and `trumpet-usage-data.md` (private CRM data) are gitignored. Only the tool, config templates, and examples are tracked.
+`research/` (briefs, dashboard, exports — real contacts and targeting), `accounts/*.csv` except the examples, `seller-context.md`, and usage data are all gitignored. Only the tool, the scoring data, templates, and sanitized examples are tracked.
 
 ## Roadmap
 
-Connect to Slack so product sign-ups and website visitors auto-trigger a brief + email: a webhook passes `{company or domain, person, trigger}`, which maps onto the single-company pipeline (the person becomes the champion, the trigger becomes the timely context, and any Trumpet usage data lights up the named-champion proof line).
+- **Slack trigger:** product signups / website visitors post `{company or domain, person, trigger}` to a webhook → single-account pipeline (person = champion, trigger = the timely context) → brief + sequence back in the channel. The input seam already accepts domains for exactly this.
+- **CRM writeback:** push tier + why-now onto the account record so the dashboard and the CRM never disagree.

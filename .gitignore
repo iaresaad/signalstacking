@@ -14,6 +14,11 @@
 accounts/accounts.csv
 accounts/accounts.txt
 
+# Private: suppression list + any enriched/CRM exports (keep the .example only)
+accounts/do-not-contact.csv
+accounts/*enriched*.csv
+accounts/clay-*.csv
+
 # Generated prospect briefs — contain real people, contact info, and outreach targeting.
 # Keep these out of the repo (especially if it ever goes public). Index is generated too.
 research/
