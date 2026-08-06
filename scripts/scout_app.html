@@ -102,6 +102,8 @@
   .logtail{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;
     font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);max-height:200px;overflow:auto;white-space:pre-wrap}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:10}
+  /* must beat .modal-bg's display:flex — the [hidden] UA rule loses to author styles */
+  .modal-bg[hidden],[hidden]{display:none !important}
   .modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:520px;width:92%}
   .modal h3{margin:0 0 10px;font-size:16px}
   .estbox{background:var(--warm-bg);color:var(--warm-ink);border-radius:10px;padding:12px 16px;
@@ -426,8 +428,12 @@ $('btn-run-batch').addEventListener('click', () => {
     .map(a => ({company:a.company, domain:a.domain, target:a.target, tools:a.tools}));
   confirmRun({mode:'batch', companies, refresh: $('refresh').checked}, companies.length+' selected accounts');
 });
-$('m-cancel').addEventListener('click', () => { $('modal').hidden = true; pendingRun=null; });
+function closeModal(){ $('modal').hidden = true; pendingRun = null; }
+$('m-cancel').addEventListener('click', closeModal);
 $('m-go').addEventListener('click', launch);
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+$('oneoff').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-run-oneoff').click(); });
 $('btn-cancel').addEventListener('click', async () => {
   if (!confirm('Cancel the running research?')) return;
   const j = await (await fetch('/api/run/cancel',{method:'POST'})).json();
