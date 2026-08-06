@@ -11,6 +11,7 @@ Core belief: one signal is a guess; a stack is a thesis. The output your seller 
 ## Read these first
 1. `.claude/signal-stacking/seller-context.md` — ICP, timing weights, tier matrix, escalation rules, personas. If missing (fresh clone): copy `seller-context.example.md` over, ask the user what they sell, fill it in before continuing.
 2. `accounts/do-not-contact.csv` (optional) — the suppression list. Any account on it is skipped and logged `suppressed`. Never outreach a suppressed account.
+3. `accounts/closed-lost.csv` (optional) — prior lost opportunities from the CRM (`company,domain,close_date,loss_reason,competitor,champion_name,champion_title,notes`). Join to accounts by **domain first, normalized company name second** (strip Inc/LLC/punctuation). Every matching account gets a `CLOSED_LOST: <close_date> | <competitor> | <loss_reason> | <champion_name>, <champion_title>` line appended to its triage AND researcher prompts. Closed-lost matches are never dropped at the load stage — a past evaluation is fit proof.
 
 ## Search-lane inventory (do this once per run)
 
@@ -40,7 +41,7 @@ Wave sizing: **~5 concurrent subagents per Exa key** (waves of 10 with two keys,
 - Parse the accounts file. Clay exports welcome: map `Company Name→company`, `Company Domain→domain`, `Full Name→target`, any tools/technographics column → `tools`. Only `company` is required. Dedupe.
 - Drop suppressed accounts (log them).
 - **Freshness cache:** if `research/<slug>.md` exists and its `_Researched:` stamp is <14 days old → skip as `fresh` (unless `refresh`). With `refresh`, pass the old stamp date to the researcher so it searches the delta ("signals since <date>") instead of redoing everything.
-- If 50+ accounts: state the count and the wave plan, confirm the list looks right before launching.
+- If 50+ accounts: state the count and the wave plan, confirm the list looks right before launching. **Exception: if the accounts path is under `runs/` (a Signal Scout staged run), skip this confirmation — the human already confirmed, with a cost estimate, in the app; a headless run cannot answer questions.**
 - Track progress with TaskCreate/TaskUpdate (triage wave N, deep-dive wave N, dashboard).
 
 ## 2. Triage waves (cheap pass — kills the dead half of the list for ~5% of the tokens)

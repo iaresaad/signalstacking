@@ -6,6 +6,22 @@ Core belief: one signal is a guess; a **stack** is a thesis. Where a company hir
 
 ## Quick start
 
+**Signal Scout (the app):**
+
+```bash
+python3 scripts/scout_server.py
+# → open http://127.0.0.1:8765
+```
+
+Type a company for a one-off scout, drop in an accounts CSV (Clay exports work
+unchanged), attach signal sources (closed-lost CRM export, product usage data),
+select accounts, and hit Run. **Every run shows a token-cost estimate before it
+launches** (tunables in `scripts/cost-model.json`) — so a limited token budget
+gets spent on the accounts that matter. The page live-updates as briefs land.
+Runs execute headlessly via `claude -p`; everything stays on your machine.
+
+**Or straight from Claude Code:**
+
 ```bash
 # one company
 /signal-stacking Vanta
@@ -67,6 +83,8 @@ orchestrator (your context stays clean — it only ever sees compact summaries)
 | `scoring/trumpet-signals.json` | Competitor + technographic fit data | the competitive map changes (`--test` after) |
 | `accounts/accounts.csv` | Target list — raw Clay exports work unchanged | per campaign (gitignored) |
 | `accounts/do-not-contact.csv` | Suppression: customers, open opps, cooloffs (copy from `.example`; gitignored) | always current |
+| `accounts/closed-lost.csv` | Closed-lost CRM export → re-engagement signals + angles (upload in Scout or copy from `.example`; gitignored) | after each pipeline review |
+| `scripts/cost-model.json` | Per-run token-cost estimates shown before every launch | actuals drift from estimates |
 | `.claude/signal-stacking/trumpet-usage-data.md` | Optional product-usage data for proof lines | you have signup data (gitignored) |
 | `.claude/commands/signal-stacking.md` | Orchestration | rarely |
 | `.claude/agents/*.md` | Triage + deep-dive methodology, email rules | rarely |

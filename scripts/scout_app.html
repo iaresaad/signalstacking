@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal Scout</title>
+<style>
+  :root{
+    --bg:#faf9f5; --surface:#ffffff; --ink:#1a1915; --ink-2:#5d5a51; --ink-3:#8a8678;
+    --line:#e8e5dc; --accent:#c96442; --hot-bg:#fbeee8; --hot-ink:#a4441f;
+    --warm-bg:#faf3e0; --warm-ink:#8a6116; --mon-bg:#f0efea; --mon-ink:#6b6858;
+    --chip:#f0efea; --hover:#f5f4ee; --ok:#3a7d44;
+  }
+  @media (prefers-color-scheme: dark){ :root{
+    --bg:#262624; --surface:#30302e; --ink:#f5f4ee; --ink-2:#b8b5a9; --ink-3:#8a8678;
+    --line:#3e3d3a; --accent:#e07b53; --hot-bg:#4a2c1e; --hot-ink:#f0a480;
+    --warm-bg:#453a1c; --warm-ink:#e5c66e; --mon-bg:#3a3936; --mon-ink:#b8b5a9;
+    --chip:#3a3936; --hover:#383734; --ok:#7dc287;
+  }}
+  *{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1200px;margin:0 auto;padding:24px 20px 80px}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:22px;margin:0;letter-spacing:-.01em}
+  header p{margin:0;color:var(--ink-3);font-size:13px;flex:1}
+  .pill{border-radius:999px;padding:3px 12px;font-size:12px;font-weight:600;background:var(--chip);color:var(--ink-2)}
+  .pill.running{background:var(--warm-bg);color:var(--warm-ink)}
+  .pill.done{background:var(--mon-bg);color:var(--ok)}
+  .pill.failed{background:var(--hot-bg);color:var(--hot-ink)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:16px}
+  .card h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+  .rowflex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input[type=text],input[type=search]{flex:1;min-width:220px;background:var(--bg);border:1px solid var(--line);
+    border-radius:8px;padding:9px 12px;font:inherit;color:var(--ink)}
+  input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  textarea{width:100%;min-height:180px;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;font:13px/1.5 ui-monospace,Menlo,monospace;color:var(--ink)}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 18px;
+    font:600 14px/1 inherit;cursor:pointer}
+  button:hover{filter:brightness(1.07)}
+  button.ghost{background:var(--chip);color:var(--ink-2);border:1px solid var(--line)}
+  button.ghost:hover{color:var(--ink)}
+  button.small{padding:5px 12px;font-size:12px}
+  button:disabled{opacity:.5;cursor:default}
+  .drop{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;
+    color:var(--ink-3);font-size:13px;cursor:pointer}
+  .drop.over{border-color:var(--accent);color:var(--accent)}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0 0}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;cursor:pointer}
+  .tile.active{outline:2px solid var(--accent);outline-offset:-1px}
+  .tile .n{font-size:26px;font-weight:650;letter-spacing:-.02em}
+  .tile .l{font-size:12px;color:var(--ink-2);margin-top:2px}
+  .tablebox{overflow-x:auto;border-radius:10px;margin-top:12px}
+  table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);
+    border-radius:10px;overflow:hidden;font-size:14px}
+  th{position:sticky;top:0;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--ink-3);background:var(--surface);padding:9px 12px;border-bottom:1px solid var(--line);
+    cursor:pointer;user-select:none;white-space:nowrap}
+  th .dir{color:var(--accent)}
+  td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr.row{cursor:pointer} tr.row:hover,tr.row.open{background:var(--hover)}
+  td.co{font-weight:600;white-space:nowrap}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;
+    font-size:12px;font-weight:600;white-space:nowrap}
+  .chip.hot{background:var(--hot-bg);color:var(--hot-ink)}
+  .chip.warm{background:var(--warm-bg);color:var(--warm-ink)}
+  .chip.mon,.chip.unt{background:var(--mon-bg);color:var(--mon-ink)}
+  .why{color:var(--ink-2);max-width:460px}
+  .flag,.badge{display:inline-block;background:var(--chip);color:var(--ink-2);border-radius:6px;
+    padding:1px 7px;font-size:11px;margin:2px 4px 0 0;white-space:nowrap}
+  .badge.cl{background:var(--hot-bg);color:var(--hot-ink)}
+  .badge.u{background:var(--warm-bg);color:var(--warm-ink)}
+  .switch{font-size:12px;color:var(--hot-ink);font-weight:600}
+  tr.detail td{background:var(--bg);padding:0}
+  .detailbox{padding:18px 20px;display:grid;gap:14px}
+  .entrybox{background:var(--hot-bg);color:var(--hot-ink);border-radius:10px;padding:12px 16px;font-size:13px}
+  .entrybox b{display:block;margin-bottom:4px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tabs button{background:var(--chip);color:var(--ink-2);border:1px solid var(--line);font-size:12px;padding:6px 12px}
+  .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .touch{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .touch h4{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .touch pre{margin:0;white-space:pre-wrap;font:13px/1.55 inherit;color:var(--ink-2)}
+  button.copy{background:var(--chip);border:1px solid var(--line);color:var(--ink-2);border-radius:7px;
+    padding:4px 12px;font:600 12px/1 inherit}
+  button.copy:hover{color:var(--ink)} button.copy.ok{color:var(--accent);border-color:var(--accent)}
+  .briefmd{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 20px;
+    font-size:14px;overflow-x:auto}
+  .briefmd h1{font-size:18px;margin:.2em 0}
+  .briefmd h2{font-size:14px;margin:1.2em 0 .4em;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  .briefmd h3{font-size:13px;margin:1em 0 .3em}
+  .briefmd blockquote{margin:.6em 0;padding:.2em 1em;border-left:3px solid var(--accent);color:var(--ink-2)}
+  .briefmd a{color:var(--accent)} .briefmd li{margin:.25em 0} .briefmd em{color:var(--ink-3)}
+  .empty{padding:36px;text-align:center;color:var(--ink-3)}
+  .meta{font-size:12px;color:var(--ink-3)}
+  .acctlist{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+  .acct{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);font-size:13px}
+  .acct:last-child{border-bottom:0}
+  .acct .nm{font-weight:600;min-width:180px}
+  .acct .sp{flex:1}
+  details{margin-top:14px} summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-2)}
+  .logtail{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);max-height:200px;overflow:auto;white-space:pre-wrap}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:10}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:520px;width:92%}
+  .modal h3{margin:0 0 10px;font-size:16px}
+  .estbox{background:var(--warm-bg);color:var(--warm-ink);border-radius:10px;padding:12px 16px;
+    font-size:13px;margin:12px 0}
+  .estbox .big{font-size:17px;font-weight:700;display:block;margin-bottom:3px}
+  .newbrief{animation:pop .5s ease} @keyframes pop{from{background:var(--warm-bg)}to{background:transparent}}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--accent);
+    border-radius:10px;padding:12px 18px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:11}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <h1>Signal Scout</h1>
+    <p>who's in-market right now, and who to email first — all local</p>
+    <span class="pill" id="runpill">idle</span>
+  </header>
+
+  <!-- ── Run panel ─────────────────────────────────────────────── -->
+  <div class="card" id="runpanel">
+    <h2>Scout accounts</h2>
+    <div class="rowflex">
+      <input type="text" id="oneoff" placeholder="Company or domain — comma-separate for several (e.g. vanta.com, Redis)">
+      <button id="btn-run-oneoff">Run</button>
+    </div>
+    <div class="rowflex" style="margin-top:10px">
+      <div class="drop" id="csvdrop" style="flex:1">Drop an accounts CSV here (Clay exports work) — or click to choose. <span class="meta" id="acctcount"></span></div>
+    </div>
+    <div id="acctpicker"></div>
+    <div class="rowflex" style="margin-top:10px" id="batchbar" hidden>
+      <button class="ghost small" id="sel-unbriefed">Select unbriefed</button>
+      <button class="ghost small" id="sel-stale">Select stale</button>
+      <button class="ghost small" id="sel-none">Clear</button>
+      <span class="sp" style="flex:1"></span>
+      <label class="meta"><input type="checkbox" id="refresh"> refresh stale research</label>
+      <button id="btn-run-batch" disabled>Run selected (0)</button>
+    </div>
+
+    <details id="signals">
+      <summary>Signal sources — closed-lost CRM data &amp; product usage</summary>
+      <div class="card" style="margin-top:10px">
+        <h2>Closed-lost (CRM export)</h2>
+        <div class="drop" id="cldrop">Drop your closed-lost CSV (company, close date, loss reason, competitor, champion…) — or click to choose</div>
+        <div id="clpreview" class="meta" style="margin-top:8px"></div>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <h2>Product usage data <span class="meta" id="usagecount"></span></h2>
+        <textarea id="usagemd" spellcheck="false" placeholder="### company-slug&#10;- Rep Name, Title — 12 rooms created, 19 shared&#10;- Account-level: 7 sign-ups on free tier"></textarea>
+        <div class="rowflex" style="margin-top:8px"><button class="ghost small" id="btn-usage">Save usage data</button><span class="meta" id="usagemsg"></span></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ── Live run card ─────────────────────────────────────────── -->
+  <div class="card" id="runcard" hidden>
+    <h2>Run in progress</h2>
+    <div class="rowflex"><span id="runinfo" class="meta"></span><span style="flex:1"></span>
+      <button class="ghost small" id="btn-cancel">Cancel run</button></div>
+    <div id="runbriefs" class="meta" style="margin-top:8px"></div>
+    <details style="margin-top:8px"><summary class="meta">log tail</summary>
+      <div class="logtail" id="logtail"></div></details>
+  </div>
+
+  <!-- ── Hottest now ───────────────────────────────────────────── -->
+  <div class="tiles" id="tiles">
+    <div class="tile" data-tier="🔥"><div class="n" id="n-hot">0</div><div class="l">🔥 In-market now</div></div>
+    <div class="tile" data-tier="🟡"><div class="n" id="n-warm">0</div><div class="l">🟡 Warming</div></div>
+    <div class="tile" data-tier="⚪"><div class="n" id="n-mon">0</div><div class="l">⚪ Monitor</div></div>
+    <div class="tile" data-tier="—"><div class="n" id="n-unt">0</div><div class="l">Untiered (legacy)</div></div>
+  </div>
+  <div class="rowflex" style="margin-top:12px">
+    <input id="q" type="search" placeholder="Search company, contact, signal…">
+  </div>
+  <div class="tablebox"><table>
+    <thead><tr>
+      <th data-k="company">Company <span class="dir"></span></th>
+      <th data-k="tier">Tier <span class="dir"></span></th>
+      <th>Why now</th>
+      <th data-k="contact">Reach out to <span class="dir"></span></th>
+      <th data-k="researched">Researched <span class="dir"></span></th>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+  </table></div>
+  <p class="meta">Static copy for sharing: <a href="/research/dashboard.html" style="color:var(--accent)">research/dashboard.html</a> · export: research/outreach-export.csv</p>
+</div>
+
+<input type="file" id="csvfile" accept=".csv" hidden>
+<input type="file" id="clfile" accept=".csv" hidden>
+<div class="modal-bg" id="modal" hidden>
+  <div class="modal">
+    <h3 id="m-title">Confirm run</h3>
+    <div id="m-body" class="meta"></div>
+    <div class="estbox" id="m-est">estimating cost…</div>
+    <div class="rowflex" style="justify-content:flex-end">
+      <button class="ghost" id="m-cancel">Back</button>
+      <button id="m-go">Run it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TIER_CLASS = {"🔥":"hot","🟡":"warm","⚪":"mon","—":"unt"};
+const TIER_ORD = {"🔥":0,"🟡":1,"⚪":2,"—":3};
+
+let STATE = {briefs:[], accounts:[], counts:{}, run:{state:'idle'}};
+let tierFilter=null, query='', sortK=null, sortDir=1, openSlug=null, openVariant=0;
+let selected = new Set(), pendingRun=null, lastRunState=null, knownBriefs=new Set();
+
+function mdToHtml(md){
+  let h = esc(md);
+  h = h.replace(/^### (.*)$/gm,'<h3>$1</h3>').replace(/^## (.*)$/gm,'<h2>$1</h2>').replace(/^# (.*)$/gm,'<h1>$1</h1>');
+  h = h.replace(/^&gt; ?(.*)$/gm,'<blockquote>$1</blockquote>').replace(/<\/blockquote>\n<blockquote>/g,'<br>');
+  h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/(^|[^_\w])_([^_\n]+)_(?=[^_\w]|$)/g,'$1<em>$2</em>');
+  h = h.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  h = h.replace(/^\s*[-*] (.*)$/gm,'<li>$1</li>').replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g,'<ul>$1</ul>');
+  h = h.replace(/^(\d+)\. (.*)$/gm,'<li>$2</li>');
+  return h.split(/\n{2,}/).map(b => /^<(h\d|ul|blockquote|li)/.test(b.trim()) ? b : '<p>'+b.trim().replace(/\n/g,'<br>')+'</p>').join('\n');
+}
+
+/* ── polling ─────────────────────────────────────────────────── */
+async function poll(){
+  try{
+    const s = await (await fetch('/api/state')).json();
+    // toast on newly-landed briefs mid-run
+    (s.run.briefs_new||[]).forEach(slug => {
+      if (STATE.run && STATE.run.state==='running' && !knownBriefs.has(slug)){
+        knownBriefs.add(slug); toast('Brief ready: '+slug);
+      }
+    });
+    if (lastRunState==='running' && s.run.state==='done') toast('Run complete ✓');
+    if (lastRunState==='running' && s.run.state==='failed') toast('Run FAILED — check the log tail');
+    lastRunState = s.run.state;
+    STATE = s;
+    render();
+  }catch(e){ $('runpill').textContent='server unreachable'; }
+  setTimeout(poll, 3000);
+}
+
+/* ── render ──────────────────────────────────────────────────── */
+function visible(){
+  let rows = STATE.briefs.filter(b => !tierFilter || b.tier === tierFilter);
+  if (query){
+    const q = query.toLowerCase();
+    rows = rows.filter(b => (b.company+' '+b.contact+' '+b.whyNow+' '+b.tierLabel).toLowerCase().includes(q));
+  }
+  if (sortK){
+    rows = rows.slice().sort((a,b) => {
+      let x = a[sortK] ?? '', y = b[sortK] ?? '';
+      if (sortK === 'tier'){ x = TIER_ORD[a.tier]; y = TIER_ORD[b.tier]; }
+      return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
+    });
+  }
+  return rows;
+}
+
+function touchBlock(label, text, id){
+  if (!text) return '';
+  return `<div class="touch"><h4>${esc(label)}
+    <button class="copy" data-copy="${id}">Copy</button></h4><pre id="${id}">${esc(text)}</pre></div>`;
+}
+
+function detailHtml(b){
+  const entry = b.entryPoint
+    ? `<div class="entrybox"><b>Best point of entry</b>${mdToHtml(b.entryPoint)}</div>` : '';
+  let t1;
+  if (b.touch1Variants && b.touch1Variants.length > 1){
+    const v = b.touch1Variants[Math.min(openVariant, b.touch1Variants.length-1)];
+    t1 = `<div class="tabs">${b.touch1Variants.map((x,i) =>
+        `<button data-var="${i}" class="${i===Math.min(openVariant,b.touch1Variants.length-1)?'on':''}">${esc(x.label.replace(/^Touch 1\s*[—-]\s*/,''))}</button>`).join('')}</div>`
+      + touchBlock(v.label, v.body, 'c1-'+b.slug);
+  } else {
+    t1 = touchBlock('Touch 1 — Email (day 0)', b.touch1, 'c1-'+b.slug);
+  }
+  return `<tr class="detail"><td colspan="5"><div class="detailbox">
+    ${entry}${t1}
+    ${touchBlock('Touch 2 — Bump (day 3)', b.touch2, 'c2-'+b.slug)}
+    ${touchBlock('Touch 3 — LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug)}
+    <div class="briefmd">${mdToHtml(b.markdown)}</div>
+    <div class="meta">source: research/${esc(b.file)}${b.email ? ' · email on file: '+esc(b.email) : ''}</div>
+  </div></td></tr>`;
+}
+
+function render(){
+  // run pill + card
+  const r = STATE.run || {state:'idle'};
+  const pill = $('runpill');
+  pill.className = 'pill ' + (r.state==='running'?'running':r.state==='done'?'done':r.state==='failed'?'failed':'');
+  pill.textContent = r.state==='running' ? 'run in progress' : r.state;
+  $('runcard').hidden = r.state !== 'running' && r.state !== 'cancelling';
+  if (!$('runcard').hidden){
+    $('runinfo').textContent = `${r.prompt||''} · started ${r.started||''} · ${r.n_accounts||'?'} account(s)`;
+    $('runbriefs').innerHTML = (r.briefs_new||[]).length
+      ? '✓ briefs landed: ' + r.briefs_new.map(esc).join(', ') : 'no briefs written yet…';
+    $('logtail').textContent = r.log_tail || '';
+  }
+
+  // tiles
+  $('n-hot').textContent = STATE.counts['🔥']||0; $('n-warm').textContent = STATE.counts['🟡']||0;
+  $('n-mon').textContent = STATE.counts['⚪']||0;  $('n-unt').textContent = STATE.counts['—']||0;
+
+  // account picker
+  const accts = STATE.accounts||[];
+  $('acctcount').textContent = accts.length ? `${accts.length} accounts loaded` : '';
+  $('batchbar').hidden = !accts.length;
+  $('acctpicker').innerHTML = accts.length ? `<div class="acctlist">` + accts.map((a,i) => `
+    <label class="acct"><input type="checkbox" data-i="${i}" ${selected.has(i)?'checked':''}>
+      <span class="nm">${esc(a.company)}</span>
+      <span class="meta">${esc(a.domain||'')}</span>
+      ${a.tier?`<span class="chip ${TIER_CLASS[a.tier]}">${a.tier}</span>`:'<span class="badge">no brief</span>'}
+      ${a.has_brief&&!a.fresh?`<span class="badge">${a.age_days}d stale</span>`:''}
+      ${a.fresh?`<span class="badge">fresh</span>`:''}
+      ${a.closed_lost?'<span class="badge cl">closed-lost</span>':''}
+      ${a.usage?'<span class="badge u">usage</span>':''}
+      <span class="sp"></span></label>`).join('') + `</div>` : '';
+  $('btn-run-batch').textContent = `Run selected (${selected.size})`;
+  $('btn-run-batch').disabled = !selected.size || r.state==='running';
+  $('btn-run-oneoff').disabled = r.state==='running';
+
+  // hottest table
+  const rows = visible();
+  $('rows').innerHTML = !rows.length
+    ? '<tr><td colspan="5" class="empty">No accounts match.</td></tr>'
+    : rows.map(b => {
+      const flags = (b.flags||[]).map(f => `<span class="flag">${esc(f)}</span>`).join('');
+      const sw = b.switchPlay ? '<div class="switch">switch play</div>' : '';
+      const cl = b.closedLost ? '<span class="badge cl">re-engage</span>' : '';
+      const open = b.slug === openSlug;
+      return `<tr class="row ${open?'open':''} ${knownBriefs.has(b.slug)?'newbrief':''}" data-slug="${b.slug}">
+        <td class="co">${esc(b.company)}${sw}</td>
+        <td><span class="chip ${TIER_CLASS[b.tier]}">${b.tier==='—'?'':b.tier+' '}${esc(b.tierLabel)}</span>${cl}${flags?'<div>'+flags+'</div>':''}</td>
+        <td class="why">${esc(b.whyNow)}</td>
+        <td>${esc(b.entry||b.contact)||'<span class="meta">—</span>'}</td>
+        <td class="meta">${esc(b.researched)||'—'}</td>
+      </tr>` + (open ? detailHtml(b) : '');
+    }).join('');
+}
+
+/* ── run flow with cost estimate ─────────────────────────────── */
+async function confirmRun(payload, label){
+  pendingRun = payload;
+  $('m-title').textContent = 'Confirm run — ' + label;
+  $('m-body').innerHTML = payload.companies.map(c => esc(c.company||c.domain)).join(', ')
+    + (payload.refresh ? ' · <b>refresh</b>' : '');
+  $('m-est').textContent = 'estimating cost…';
+  $('modal').hidden = false;
+  try{
+    const est = await (await fetch('/api/estimate', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})).json();
+    $('m-est').innerHTML = `<span class="big">${esc(est.summary||'estimate unavailable')}</span>
+      Token budget is shared — run what you'll actually work.`;
+  }catch(e){ $('m-est').textContent = 'estimate unavailable'; }
+}
+
+async function launch(){
+  $('modal').hidden = true;
+  const res = await fetch('/api/run', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(pendingRun)});
+  const j = await res.json();
+  toast(res.ok ? 'Run launched: ' + j.prompt : 'Error: ' + (j.error||res.status));
+  pendingRun = null;
+}
+
+function toast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+
+/* ── uploads ─────────────────────────────────────────────────── */
+function wireDrop(dropId, fileId, handler){
+  const drop = $(dropId), file = $(fileId);
+  drop.addEventListener('click', () => file.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) e.dataTransfer.files[0].text().then(handler);
+  });
+  file.addEventListener('change', () => { if (file.files[0]) file.files[0].text().then(handler); });
+}
+
+wireDrop('csvdrop','csvfile', async text => {
+  const res = await fetch('/api/accounts', {method:'POST', body:text});
+  const j = await res.json();
+  toast(res.ok ? `Accounts saved (${j.accounts} total)` : 'Error: '+(j.error||''));
+});
+
+wireDrop('cldrop','clfile', async text => {
+  const res = await fetch('/api/closed-lost', {method:'POST', body:text});
+  const j = await res.json();
+  if (res.ok) renderClPreview(j); else toast('Error: '+(j.error||''));
+});
+
+function renderClPreview(j){
+  if (!j.rows || !j.rows.length){ $('clpreview').textContent=''; return; }
+  $('clpreview').innerHTML = `${j.rows.length} closed-lost rows on file` +
+    (j.unmatched ? ` · <b style="color:var(--hot-ink)">${j.unmatched} don't match any account or brief</b> — fix the company name or add a domain so they aren't missed:` : ' · all matched ✓') +
+    '<br>' + j.rows.filter(r=>!r.matched_account&&!r.matched_brief).map(r=>esc(r.company)).join(', ');
+}
+
+async function loadSignals(){
+  try{
+    const cl = await (await fetch('/api/closed-lost')).json();
+    renderClPreview(cl);
+    const u = await (await fetch('/api/usage-data')).json();
+    $('usagemd').value = u.markdown || '';
+    $('usagecount').textContent = u.companies.length ? `· ${u.companies.length} companies` : '';
+  }catch(e){}
+}
+
+/* ── events ──────────────────────────────────────────────────── */
+$('btn-run-oneoff').addEventListener('click', () => {
+  const names = $('oneoff').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (!names.length) return;
+  const companies = names.map(n => n.includes('.') && !n.includes(' ') ? {company:n, domain:n} : {company:n});
+  confirmRun({mode: names.length>1?'batch':'single', companies, refresh:false},
+             names.length>1 ? names.length+' companies' : names[0]);
+});
+$('btn-run-batch').addEventListener('click', () => {
+  const companies = [...selected].map(i => STATE.accounts[i])
+    .map(a => ({company:a.company, domain:a.domain, target:a.target, tools:a.tools}));
+  confirmRun({mode:'batch', companies, refresh: $('refresh').checked}, companies.length+' selected accounts');
+});
+$('m-cancel').addEventListener('click', () => { $('modal').hidden = true; pendingRun=null; });
+$('m-go').addEventListener('click', launch);
+$('btn-cancel').addEventListener('click', async () => {
+  if (!confirm('Cancel the running research?')) return;
+  const j = await (await fetch('/api/run/cancel',{method:'POST'})).json();
+  toast(j.cancelled ? 'Run cancelled' : 'Error: '+(j.error||''));
+});
+$('btn-usage').addEventListener('click', async () => {
+  const res = await fetch('/api/usage-data', {method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({markdown: $('usagemd').value})});
+  const j = await res.json();
+  $('usagemsg').textContent = res.ok ? `saved ✓ (${j.companies.length} companies)` : 'error';
+  setTimeout(()=>$('usagemsg').textContent='', 3000);
+});
+$('acctpicker').addEventListener('change', e => {
+  const cb = e.target.closest('input[type=checkbox]'); if (!cb) return;
+  const i = +cb.dataset.i;
+  cb.checked ? selected.add(i) : selected.delete(i);
+  render();
+});
+$('sel-unbriefed').addEventListener('click', () => {
+  selected = new Set(STATE.accounts.map((a,i)=>[a,i]).filter(([a])=>!a.has_brief).map(([,i])=>i)); render();
+});
+$('sel-stale').addEventListener('click', () => {
+  selected = new Set(STATE.accounts.map((a,i)=>[a,i]).filter(([a])=>a.has_brief&&!a.fresh).map(([,i])=>i)); render();
+});
+$('sel-none').addEventListener('click', () => { selected = new Set(); render(); });
+$('rows').addEventListener('click', e => {
+  const btn = e.target.closest('button.copy');
+  if (btn){
+    const pre = $(btn.dataset.copy);
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+      btn.textContent='Copied ✓'; btn.classList.add('ok');
+      setTimeout(() => { btn.textContent='Copy'; btn.classList.remove('ok'); }, 1400);
+    });
+    e.stopPropagation(); return;
+  }
+  const vt = e.target.closest('.tabs button');
+  if (vt){ openVariant = +vt.dataset.var; render(); e.stopPropagation(); return; }
+  const tr = e.target.closest('tr.row');
+  if (tr){ openSlug = openSlug === tr.dataset.slug ? null : tr.dataset.slug; openVariant = 0; render(); }
+});
+$('tiles').addEventListener('click', e => {
+  const t = e.target.closest('.tile'); if (!t) return;
+  tierFilter = tierFilter === t.dataset.tier ? null : t.dataset.tier;
+  document.querySelectorAll('.tile').forEach(x => x.classList.toggle('active', x.dataset.tier === tierFilter));
+  render();
+});
+$('q').addEventListener('input', e => { query = e.target.value; render(); });
+document.querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => {
+  const k = th.dataset.k;
+  sortDir = sortK === k ? -sortDir : 1; sortK = k;
+  document.querySelectorAll('th .dir').forEach(d => d.textContent = '');
+  th.querySelector('.dir').textContent = sortDir === 1 ? '▲' : '▼';
+  render();
+}));
+
+loadSignals();
+poll();
+</script>
+</body></html>

@@ -1,0 +1,4 @@
+company,domain,close_date,loss_reason,competitor,champion_name,champion_title,notes
+Northwind Cloud,northwindcloud.example,2025-03-14,chose incumbent bundle,GetAccept,Dana Whitfield,VP Sales,champion has since left per LinkedIn
+Acme Analytics,acmeanalytics.example,2024-11-02,price objection at renewal quote,Seismic,Riley Chen,Head of Revenue Enablement,deal stalled at CFO; new CRO hired 2026-01
+Globex Payments,globexpay.example,2026-02-20,went with internal build,,Sam Ortiz,Director of Sales Ops,too recent — expect ⚪ with re-check date

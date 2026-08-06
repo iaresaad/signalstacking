@@ -41,6 +41,9 @@ Two axes. **FIT** comes from technographics — edit `scoring/trumpet-signals.js
 | <exec publicly naming the pain you solve> | 3 |
 | <hiring wave in the function you sell into> | 2 |
 | <funding round < 6 months> | 2 |
+| Closed-lost opp 12+ months ago (re-engagement window open) | 2 |
+| Closed-lost + prior champion departed or complaints about their pick | 3 |
+| Closed-lost < 9 months ago (too soon) | −2 |
 | <negative signal, e.g. layoffs> | −2 |
 
 **Tier matrix** (timing × fit): timing ≥ 5 + fit high/medium → 🔥 In-market now; timing 2–4 → 🟡 Warming; else ⚪ Monitor. Fit-high with no timing stays 🟡 (watch list).
@@ -52,3 +55,10 @@ Two axes. **FIT** comes from technographics — edit `scoring/trumpet-signals.js
 - **Economic buyer:** <title> — business-outcome language.
 - **Influencer:** <title> — workflow-pain language.
 - **Champion:** <title> — peer-to-peer language.
+- **Re-engagement register (closed-lost accounts):** acknowledge the history in sentence one, no groveling — lead with what changed since (their side and yours).
+
+**Best point of entry — pick order (the sequence targets ONE person; say why in one sentence):**
+1. Committee member with a live, relevant signal of their own (post, new in seat, hiring for it).
+2. Prior champion if still in seat (closed-lost accounts).
+3. Influencer, when the pain is workflow-shaped.
+4. Default: economic buyer.

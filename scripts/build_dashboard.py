@@ -17,180 +17,32 @@ joined in by company name for the export.
 """
 
 import csv
-import html
-import io
 import json
-import re
-from datetime import date, datetime
-from pathlib import Path
+from datetime import date
 
-ROOT = Path(__file__).resolve().parent.parent
-RESEARCH = ROOT / "research"
-ACCOUNTS = ROOT / "accounts"
-STALE_DAYS = 30
-
-TIER_ORDER = {"🔥": 0, "🟡": 1, "⚪": 2, "—": 3}
-TIER_LABEL = {"🔥": "In-market now", "🟡": "Warming", "⚪": "Monitor", "—": "Untiered"}
-
-
-def section(md, *names):
-    """Return the body of the first matching ## section (case-insensitive)."""
-    for name in names:
-        m = re.search(
-            rf"^##\s+{re.escape(name)}[^\n]*\n(.*?)(?=^##[^#]|\Z)",
-            md, re.M | re.S | re.I,
-        )
-        if m:
-            return m.group(1).strip()
-    return ""
-
-
-def subsection(md, *names):
-    for name in names:
-        m = re.search(
-            rf"^###\s+{re.escape(name)}[^\n]*\n(.*?)(?=^###|^##[^#]|\Z)",
-            md, re.M | re.S | re.I,
-        )
-        if m:
-            return m.group(1).strip()
-    return ""
-
-
-def first_line(text):
-    for line in text.splitlines():
-        line = line.strip()
-        if line:
-            return line
-    return ""
-
-
-def parse_brief(path, today, email_map):
-    md = path.read_text(encoding="utf-8")
-    m = re.search(r"^#\s+(?:Signal Stacking Brief\s*—\s*|)(.+?)(?:\s*—\s*Prospecting Brief)?\s*$", md, re.M)
-    company = m.group(1).strip() if m else path.stem.replace("-", " ").title()
-
-    m = re.search(r"_(?:Researched|Generated):\s*(\d{4}-\d{2}-\d{2})", md)
-    researched = m.group(1) if m else ""
-    age_days = None
-    if researched:
-        try:
-            age_days = (today - datetime.strptime(researched, "%Y-%m-%d").date()).days
-        except ValueError:
-            pass
-
-    m = re.search(r"Tier:\s*(🔥|🟡|⚪)", md)
-    tier = m.group(1) if m else "—"
-
-    m = re.search(r"Fit:\s*(\w+)", md)
-    fit = m.group(1) if m else ""
-    m = re.search(r"Timing:\s*(-?\d+)\s*pts", md)
-    timing = int(m.group(1)) if m else None
-
-    why_now = first_line(section(md, "Why now"))
-    if not why_now:  # legacy brief: fall back to the angle's first sentence
-        angle = section(md, "Suggested Outreach Angle", "Stacked Angles")
-        why_now = first_line(angle)[:220]
-
-    contact = ""
-    people = section(md, "Key People", "Target Contact")
-    m = re.search(r"\*\*Economic buyer:\*\*\s*([^\n—-]+(?:—|,|-)?[^\n[]*)", people)
-    if m:
-        contact = m.group(1).strip().rstrip("—-, ")
-    else:
-        m = re.search(r"\*\*(.+?)\*\*\s*—\s*([^\n(]+)", people)
-        if m:
-            contact = f"{m.group(1).strip()}, {m.group(2).strip()}"
-    contact = re.sub(r"\s*\[.*?\]\(.*?\)", "", contact).strip()
-
-    switch = "yes" if re.search(r"SWITCH PLAY", md, re.I) else ""
-    m = re.search(r"suppressed-until-(\S+)|Re-check:\s*(\S+)", md, re.I)
-    recheck = (m.group(1) or m.group(2)) if m else ""
-
-    seq = section(md, "Outreach Sequence", "Drafted Email")
-    touch1 = subsection(seq, "Touch 1") or (seq if seq and "### " not in seq else "")
-    touch2 = subsection(seq, "Touch 2")
-    touch3 = subsection(seq, "Touch 3")
-
-    flags = []
-    if tier == "—":
-        flags.append("untiered — re-run for scoring")
-    if age_days is not None and age_days > STALE_DAYS:
-        flags.append(f"{age_days}d old — re-verify contact")
-    if recheck:
-        flags.append(f"re-check {recheck}")
-
-    email = email_map.get(company.lower(), "")
-
-    return {
-        "company": company,
-        "slug": path.stem,
-        "file": path.name,
-        "tier": tier,
-        "tierLabel": TIER_LABEL[tier],
-        "fit": fit,
-        "timing": timing,
-        "whyNow": why_now,
-        "contact": contact,
-        "email": email,
-        "switchPlay": switch,
-        "researched": researched,
-        "flags": flags,
-        "touch1": touch1,
-        "touch2": touch2,
-        "touch3": touch3,
-        "markdown": md,
-    }
-
-
-def load_email_map():
-    """company (lower) → email, from any accounts CSV that has both columns."""
-    out = {}
-    if not ACCOUNTS.is_dir():
-        return out
-    for p in sorted(ACCOUNTS.glob("*.csv")):
-        try:
-            rows = list(csv.DictReader(p.open(encoding="utf-8-sig")))
-        except Exception:
-            continue
-        if not rows:
-            continue
-        cols = {c.lower().strip(): c for c in rows[0].keys() if c}
-        comp = next((cols[c] for c in cols if "company" in c and "domain" not in c), None)
-        mail = next((cols[c] for c in cols if "email" in c and "?" not in c and "all" not in c), None)
-        if not comp or not mail:
-            continue
-        for r in rows:
-            c, e = (r.get(comp) or "").strip(), (r.get(mail) or "").strip()
-            if c and e and "@" in e:
-                out.setdefault(c.lower(), e)
-    return out
+from brieflib import (  # shared with scout_server.py — edit brieflib, not here
+    RESEARCH, TIER_ORDER, load_briefs, load_email_map,
+)
 
 
 def build():
     today = date.today()
-    email_map = load_email_map()
-    briefs = []
-    for p in sorted(RESEARCH.glob("*.md")):
-        if p.name.startswith("_"):
-            continue
-        try:
-            briefs.append(parse_brief(p, today, email_map))
-        except Exception as e:  # never let one bad brief kill the dashboard
-            print(f"  ! skipped {p.name}: {e}")
-
-    briefs.sort(key=lambda b: (TIER_ORDER[b["tier"]], -(b["timing"] or -99), b["company"].lower()))
+    briefs = load_briefs(today, load_email_map())
 
     # ---- sequencer export ------------------------------------------------
     RESEARCH.mkdir(exist_ok=True)
     export = RESEARCH / "outreach-export.csv"
     with export.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["company", "tier", "contact", "email", "why_now", "switch_play",
-                    "touch1_email", "touch2_bump", "touch3_linkedin", "researched", "brief"])
+        w.writerow(["company", "tier", "contact", "entry_point", "email", "why_now", "switch_play",
+                    "touch1_email", "touch1_b", "touch1_c",
+                    "touch2_bump", "touch3_linkedin", "researched", "brief"])
         for b in briefs:
-            w.writerow([b["company"], b["tierLabel"], b["contact"], b["email"],
-                        b["whyNow"], b["switchPlay"], b["touch1"], b["touch2"],
-                        b["touch3"], b["researched"], f"research/{b['file']}"])
+            v = b["touch1Variants"]
+            w.writerow([b["company"], b["tierLabel"], b["contact"], b["entry"], b["email"],
+                        b["whyNow"], b["switchPlay"], b["touch1"],
+                        v[1]["body"] if len(v) > 1 else "", v[2]["body"] if len(v) > 2 else "",
+                        b["touch2"], b["touch3"], b["researched"], f"research/{b['file']}"])
 
     # ---- dashboard -------------------------------------------------------
     counts = {t: sum(1 for b in briefs if b["tier"] == t) for t in TIER_ORDER}
@@ -269,6 +121,8 @@ DASHBOARD_TEMPLATE = r"""<!doctype html>
   tr.detail td{background:var(--bg);padding:0;border-bottom:1px solid var(--line)}
   .detailbox{padding:18px 22px;display:grid;gap:16px}
   .touch{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .entrybox{background:var(--hot-bg);color:var(--hot-ink);border-radius:10px;padding:12px 16px;font-size:13px}
+  .entrybox b{display:block;margin-bottom:4px}
   .touch h4{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
   .touch pre{margin:0;white-space:pre-wrap;font:13px/1.55 inherit;color:var(--ink-2)}
   button.copy{background:var(--chip);border:1px solid var(--line);color:var(--ink-2);border-radius:7px;
@@ -358,8 +212,14 @@ function render(){
     const open = b.slug === openSlug;
     let detail = '';
     if (open){
+      const variants = (b.touch1Variants && b.touch1Variants.length > 1)
+        ? b.touch1Variants.map((v,i) => touchBlock(v.label, v.body, 'c1'+i+'-'+b.slug)).join('')
+        : touchBlock('Touch 1 — Email (day 0)', b.touch1, 'c1-'+b.slug);
+      const entry = b.entryPoint
+        ? `<div class="entrybox"><b>Best point of entry</b>${mdToHtml(b.entryPoint)}</div>` : '';
       detail = `<tr class="detail"><td colspan="5"><div class="detailbox">
-        ${touchBlock('Touch 1 — Email (day 0)', b.touch1, 'c1-'+b.slug)}
+        ${entry}
+        ${variants}
         ${touchBlock('Touch 2 — Bump (day 3)', b.touch2, 'c2-'+b.slug)}
         ${touchBlock('Touch 3 — LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug)}
         <div class="briefmd">${mdToHtml(b.markdown)}</div>
