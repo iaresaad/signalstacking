@@ -469,6 +469,14 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return self.rfile.read(n).decode("utf-8", "replace")
 
+    def _json_body(self):
+        """Parsed JSON object, or None if the body isn't one (incl. literal null)."""
+        try:
+            payload = json.loads(self._body() or "{}")
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/":
@@ -495,16 +503,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?")[0]
         if path == "/api/run":
-            try:
-                payload = json.loads(self._body() or "{}")
-            except json.JSONDecodeError:
-                return self._send(400, {"error": "bad JSON"})
+            payload = self._json_body()
+            if payload is None:
+                return self._send(400, {"error": "expected a JSON object body"})
             self._send(*start_run(payload))
         elif path == "/api/estimate":
-            try:
-                payload = json.loads(self._body() or "{}")
-            except json.JSONDecodeError:
-                return self._send(400, {"error": "bad JSON"})
+            payload = self._json_body()
+            if payload is None:
+                return self._send(400, {"error": "expected a JSON object body"})
             self._send(200, estimate(payload))
         elif path == "/api/run/cancel":
             self._send(*cancel_run())
@@ -518,10 +524,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         if self.path.split("?")[0] == "/api/usage-data":
-            try:
-                payload = json.loads(self._body() or "{}")
-            except json.JSONDecodeError:
-                return self._send(400, {"error": "bad JSON"})
+            payload = self._json_body()
+            if payload is None:
+                return self._send(400, {"error": "expected a JSON object body"})
             md = payload.get("markdown", "")
             USAGE_MD.parent.mkdir(parents=True, exist_ok=True)
             USAGE_MD.write_text(md, encoding="utf-8")
