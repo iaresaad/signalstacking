@@ -130,6 +130,24 @@ Scout shows the credit range and asks before spending, and every result is
 cached in `accounts/apollo-cache.json` — re-enriching an account you already
 pulled costs nothing.
 
+## Suppression (do-not-contact)
+
+`accounts/do-not-contact.csv` (`company,domain,reason,until`) lists current
+customers, open opportunities and cooloffs. **The app enforces it**, not just the
+orchestrator prompt: a run naming a suppressed account is refused with 409 before
+a token is spent, suppressed rows are excluded from bulk selection, and an
+`until` date in the past stops suppressing (an expired cooloff).
+
+Matching is by domain and by normalized company name, and it runs *after* URL
+normalization — otherwise a customer pasted as `https://www.acme-co.com/fleet`
+sails straight past a list that contains `Acme Co`.
+
+This matters more than it looks. The FIT score is computed from technographics,
+so your own customers — high-velocity revtech with big AE teams — are exactly
+the accounts the scorer ranks 🔥. Worse, the Touch-1 copy cites public customers
+as social proof, so an unsuppressed customer would be sent an email citing
+*itself* as the reason to buy.
+
 ## Running any company
 
 Three ways in, all equivalent:

@@ -444,6 +444,39 @@ def load_domain_map():
     return out
 
 
+def load_do_not_contact(path=None):
+    """accounts/do-not-contact.csv -> {join_key: row}, keyed by domain AND name.
+
+    Suppression is otherwise only an instruction in the orchestrator prompt. The
+    app enforces it too, so a suppressed account cannot be selected and run by
+    accident — emailing a current customer is the expensive kind of mistake.
+    `until` dates in the past no longer suppress (a cooloff that has expired).
+    """
+    p = Path(path) if path else ACCOUNTS / "do-not-contact.csv"
+    out = {}
+    if not p.is_file():
+        return out
+    try:
+        rows = list(csv.DictReader(p.open(encoding="utf-8-sig")))
+    except Exception:
+        return out
+    today = datetime.now().date()
+    for r in rows:
+        row = {(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
+        until = row.get("until") or ""
+        if until:
+            try:
+                if datetime.strptime(until, "%Y-%m-%d").date() < today:
+                    continue  # cooloff expired — no longer suppressed
+            except ValueError:
+                pass
+        if row.get("domain"):
+            out[row["domain"].lower()] = row
+        if row.get("company"):
+            out.setdefault(normalize_company(row["company"]), row)
+    return out
+
+
 def load_closed_lost(path=None):
     """accounts/closed-lost.csv → {join_key: row}.
 

@@ -38,8 +38,8 @@ import apollolib
 import brieflib
 import costlib
 from brieflib import (ACCOUNTS, FRESH_DAYS, RESEARCH, ROOT, load_briefs,
-                      load_closed_lost, load_email_map, normalize_company,
-                      slugify)
+                      load_closed_lost, load_do_not_contact, load_email_map,
+                      normalize_company, slugify)
 
 RUNS = ROOT / "runs"
 ACTIVE = RUNS / "ACTIVE"
@@ -193,6 +193,25 @@ def start_run(payload):
                 if normalize_target(c["company"])[1]:
                     c["company"] = name
 
+        # Suppression was only an instruction in the orchestrator prompt, which
+        # cannot stop a run from being launched or the tokens from being spent.
+        # Enforce it here: a current customer or open opp must not be researched
+        # and must never reach a sequence.
+        dnc = load_do_not_contact()
+        blocked = []
+        for c in companies:
+            hit = (dnc.get((c.get("domain") or "").lower())
+                   or dnc.get(normalize_company(c.get("company") or "")))
+            if hit:
+                blocked.append({"company": c.get("company") or c.get("domain"),
+                                "matched": hit.get("company", ""),
+                                "reason": hit.get("reason", "on the do-not-contact list")})
+        if blocked and not payload.get("override_suppression"):
+            return 409, {"error": "suppressed accounts in this run", "blocked": blocked,
+                         "detail": "On accounts/do-not-contact.csv — current customers, "
+                                   "open opportunities or cooloffs. Remove them from the "
+                                   "run, or re-send with override_suppression to proceed."}
+
         run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
         rdir = RUNS / run_id
         rdir.mkdir(parents=True, exist_ok=True)
@@ -343,6 +362,7 @@ def app_state():
         if b.get("domain"):
             by_dom.setdefault(b["domain"].lower(), b)
     cl = load_closed_lost()
+    dnc = load_do_not_contact()
     usage = _usage_slugs()
 
     accounts = _read_accounts()
@@ -359,6 +379,9 @@ def app_state():
         a["age_days"] = b["ageDays"] if b else None
         a["fresh"] = bool(b and b["ageDays"] is not None and b["ageDays"] < FRESH_DAYS)
         a["closed_lost"] = a["domain"] in cl or normalize_company(a["company"]) in cl
+        sup = dnc.get(a["domain"]) or dnc.get(normalize_company(a["company"]))
+        a["suppressed"] = bool(sup)
+        a["suppress_reason"] = sup.get("reason", "") if sup else ""
         a["usage"] = slug in usage
 
     counts = {t: sum(1 for b in briefs if b["tier"] == t) for t in ("🔥", "🟡", "⚪", "—")}
@@ -367,6 +390,7 @@ def app_state():
         "counts": counts,
         "accounts": accounts,
         "closed_lost_rows": len(set(id(v) for v in cl.values())),
+        "suppressed_rows": len({id(v) for v in dnc.values()}),
         "usage_companies": sorted(usage),
         "run": run_status(),
         "apollo": apollo_status(),

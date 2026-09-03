@@ -534,8 +534,16 @@ $('btn-run-oneoff').addEventListener('click', () => {
              names.length>1 ? names.length+' companies' : names[0]);
 });
 $('btn-run-batch').addEventListener('click', () => {
-  const companies = [...selected].map(i => STATE.accounts[i])
+  const picked = [...selected].map(i => STATE.accounts[i]);
+  const sup = picked.filter(a => a.suppressed);
+  if (sup.length && !confirm(
+      `${sup.length} selected account(s) are on your do-not-contact list:\n\n` +
+      sup.slice(0,8).map(a => `  • ${a.company} — ${a.suppress_reason}`).join('\n') +
+      (sup.length>8 ? `\n  …and ${sup.length-8} more` : '') +
+      `\n\nThey will be skipped. Continue with the rest?`)) return;
+  const companies = picked.filter(a => !a.suppressed)
     .map(a => ({company:a.company, domain:a.domain, target:a.target, tools:a.tools}));
+  if (!companies.length){ toast('Nothing to run — all selected accounts are suppressed'); return; }
   confirmRun({mode:'batch', companies, refresh: $('refresh').checked}, companies.length+' selected accounts');
 });
 function closeModal(){ $('modal').hidden = true; pendingRun = null; }
