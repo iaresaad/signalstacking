@@ -151,11 +151,11 @@
   <div class="card" id="runpanel">
     <h2>Scout accounts</h2>
     <div class="rowflex">
-      <input type="text" id="oneoff" placeholder="Company or domain — comma-separate for several (e.g. vanta.com, Redis)">
+      <input type="text" id="oneoff" placeholder="Company, domain or website URL — comma-separate for several (e.g. Stripe, notion.so, https://ramp.com)">
       <button id="btn-run-oneoff">Run</button>
     </div>
     <div class="rowflex" style="margin-top:10px">
-      <div class="drop" id="csvdrop" style="flex:1">Drop an accounts CSV here (Clay exports work) — or click to choose. <span class="meta" id="acctcount"></span></div>
+      <div class="drop" id="csvdrop" style="flex:1">Drop an accounts CSV here (Clay exports work) — or click to choose. Adds to your list by default. <span class="meta" id="acctcount"></span></div>
     </div>
     <div id="acctpicker"></div>
     <div class="rowflex" style="margin-top:10px" id="batchbar" hidden>
@@ -477,9 +477,22 @@ function wireDrop(dropId, fileId, handler){
 }
 
 wireDrop('csvdrop','csvfile', async text => {
-  const res = await fetch('/api/accounts', {method:'POST', body:text});
+  const have = (STATE.accounts || []).length;
+  let replace = false;
+  if (have){
+    // Replacing throws away a curated list. Ask, and default to merging.
+    replace = !confirm(
+      `You already have ${have} account(s).\n\n` +
+      `OK  = ADD the new rows, keeping all ${have} existing accounts.\n` +
+      `Cancel = REPLACE the list with just this file (the ${have} are discarded).`);
+  }
+  const res = await fetch('/api/accounts' + (replace ? '?replace=1' : ''), {method:'POST', body:text});
   const j = await res.json();
-  toast(res.ok ? `Accounts saved (${j.accounts} total)` : 'Error: '+(j.error||''));
+  if (!res.ok){ toast('Error: '+(j.error||'')); return; }
+  toast(j.mode === 'merge'
+    ? `Added ${j.added} new — ${j.accounts} accounts total`
+    : `Replaced list — ${j.accounts} accounts`);
+  poll();
 });
 
 wireDrop('cldrop','clfile', async text => {
@@ -506,10 +519,17 @@ async function loadSignals(){
 }
 
 /* ── events ──────────────────────────────────────────────────── */
+// "https://www.stripe.com/pricing" and "stripe.com" are both the domain
+// stripe.com; anything that isn't URL-shaped is treated as a company name.
+function parseTarget(s){
+  const m = s.match(/^(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:[\/?#].*)?$/i);
+  return m ? {company: m[1].toLowerCase(), domain: m[1].toLowerCase()} : {company: s};
+}
+
 $('btn-run-oneoff').addEventListener('click', () => {
   const names = $('oneoff').value.split(',').map(s=>s.trim()).filter(Boolean);
   if (!names.length) return;
-  const companies = names.map(n => n.includes('.') && !n.includes(' ') ? {company:n, domain:n} : {company:n});
+  const companies = names.map(parseTarget);
   confirmRun({mode: names.length>1?'batch':'single', companies, refresh:false},
              names.length>1 ? names.length+' companies' : names[0]);
 });

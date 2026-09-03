@@ -186,6 +186,12 @@ def start_run(payload):
         refresh = bool(payload.get("refresh"))
         if not companies:
             return 400, {"error": "no companies given"}
+        for c in companies:  # accept a pasted URL as a domain
+            name, dom = normalize_target(c.get("domain") or c.get("company") or "")
+            if dom:
+                c["company"], c["domain"] = c.get("company") or name, dom
+                if normalize_target(c["company"])[1]:
+                    c["company"] = name
 
         run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
         rdir = RUNS / run_id
@@ -224,6 +230,10 @@ def start_run(payload):
             cwd=ROOT, stdout=logf, stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL, start_new_session=True,
         )
+        try:
+            remember_accounts(companies)
+        except Exception:
+            pass  # never let bookkeeping kill a launched run
         ACTIVE.write_text(json.dumps({"id": run_id, "pid": proc.pid}))
         before = _research_mtimes()
         _write_status(run_id, {
@@ -326,17 +336,23 @@ def app_state():
     # Slug alone is too strict a join: an accounts CSV says "Docusign, Inc."
     # while the brief is docusign.md, and the row would read "no brief" —
     # inviting a paid re-run of research that already exists.
-    by_norm = {}
+    by_norm, by_dom = {}, {}
     for b in briefs:
         by_norm.setdefault(normalize_company(b["company"]), b)
         by_norm.setdefault(normalize_company(b["slug"].replace("-", " ")), b)
+        if b.get("domain"):
+            by_dom.setdefault(b["domain"].lower(), b)
     cl = load_closed_lost()
     usage = _usage_slugs()
 
     accounts = _read_accounts()
     for a in accounts:
         slug = slugify(a["company"])
-        b = by_slug.get(slug) or by_norm.get(normalize_company(a["company"]))
+        # domain is the strongest join: a row typed in as "stripe.com" must find
+        # the brief titled "Stripe", or the picker offers a paid re-run of it.
+        b = (by_slug.get(slug)
+             or by_norm.get(normalize_company(a["company"]))
+             or (by_dom.get(a["domain"].lower()) if a.get("domain") else None))
         a["slug"] = b["slug"] if b else slug
         a["has_brief"] = bool(b)
         a["tier"] = b["tier"] if b else ""
@@ -606,6 +622,59 @@ def closed_lost_state():
                              if not r["matched_account"] and not r["matched_brief"])}
 
 
+def normalize_target(s):
+    """'https://www.stripe.com/pricing' -> ('stripe.com', 'stripe.com'); 'Stripe' -> ('Stripe', '')."""
+    s = (s or "").strip()
+    if not s:
+        return "", ""
+    m = re.match(r"^(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:[/?#].*)?$", s, re.I)
+    if m:
+        d = m.group(1).lower()
+        return d, d
+    return s, ""
+
+
+def remember_accounts(companies):
+    """Append newly-researched companies to accounts.csv so they persist.
+
+    An ad-hoc run typed into the box would otherwise produce a brief that never
+    appears in the account picker.
+    """
+    if not companies:
+        return
+    try:
+        existing = {normalize_company(a["company"]) for a in _read_accounts()}
+    except Exception:
+        existing = set()
+    new = [c for c in companies
+           if c.get("company") and normalize_company(c["company"]) not in existing]
+    if not new:
+        return
+    header = ["company", "domain", "full name", "job title", "tools", "email", "notes"]
+    fresh = not ACCOUNTS_CSV.is_file() or not ACCOUNTS_CSV.read_text(encoding="utf-8-sig").strip()
+    fieldnames = header
+    if not fresh:
+        try:
+            rows = list(csv.DictReader(ACCOUNTS_CSV.open(encoding="utf-8-sig")))
+            if rows:
+                fieldnames = list(rows[0].keys())
+        except Exception:
+            pass
+    comp_f = next((f for f in fieldnames if "company" in f.lower() and "domain" not in f.lower()), None)
+    dom_f = next((f for f in fieldnames if "domain" in f.lower() or "website" in f.lower()), None)
+    with ACCOUNTS_CSV.open("a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        if fresh:
+            w.writeheader()
+        for c in new:
+            row = {k: "" for k in fieldnames}
+            if comp_f:
+                row[comp_f] = c["company"]
+            if dom_f:
+                row[dom_f] = c.get("domain", "")
+            w.writerow(row)
+
+
 def save_accounts(raw, replace):
     try:
         rows = list(csv.DictReader(io.StringIO(raw)))
@@ -616,6 +685,7 @@ def save_accounts(raw, replace):
     if not any("company" in (c or "").lower() for c in rows[0]):
         return 400, {"error": "no company column found",
                      "headers_seen": [c for c in rows[0] if c]}
+    before = len(_read_accounts()) if ACCOUNTS_CSV.is_file() else 0
     if replace or not ACCOUNTS_CSV.is_file():
         ACCOUNTS_CSV.write_text(raw if raw.endswith("\n") else raw + "\n",
                                 encoding="utf-8")
@@ -630,7 +700,10 @@ def save_accounts(raw, replace):
             for r in rows:
                 if normalize_company((r.get(comp_col) or "")) not in existing:
                     w.writerow(r)
-    return 200, {"accounts": len(_read_accounts())}
+    after = len(_read_accounts())
+    return 200, {"accounts": after, "before": before,
+                 "added": max(0, after - before) if not replace else after,
+                 "mode": "replace" if replace else "merge"}
 
 
 # --------------------------------------------------------------------- http
@@ -728,7 +801,7 @@ class Handler(BaseHTTPRequestHandler):
             n, keys = apollolib.apply_webhook(payload)
             self._send(200, {"updated": n, "people": keys})
         elif path == "/api/accounts":
-            replace = "replace=0" not in self.path
+            replace = "replace=1" in self.path  # merge unless explicitly replacing
             self._send(*save_accounts(self._body(), replace))
         elif path == "/api/closed-lost":
             self._send(*save_closed_lost(self._body()))

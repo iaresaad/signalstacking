@@ -130,6 +130,25 @@ Scout shows the credit range and asks before spending, and every result is
 cached in `accounts/apollo-cache.json` — re-enriching an account you already
 pulled costs nothing.
 
+## Running any company
+
+Three ways in, all equivalent:
+
+- **Type a name** — `Stripe`
+- **Paste a website** — `https://www.stripe.com/pricing`, `stripe.com`, `www.Ramp.com/careers` all resolve to the bare domain
+- **Drop a CSV** — Clay exports work unchanged; any file with a company column does
+
+Comma-separate for several (`Stripe, notion.so, https://ramp.com`) and it runs as
+a batch. Anything you run is appended to `accounts/accounts.csv`, so a one-off
+company joins the picker instead of disappearing after the run.
+
+**A dropped CSV adds to your list — it does not replace it.** Replacing is
+possible but has to be chosen explicitly in the prompt (or `?replace=1` on the
+API), because a curated account list is expensive to rebuild. Accounts join to
+briefs by slug, then normalized name, then domain, so a row typed as
+`stripe.com` still finds the brief titled *Stripe* rather than offering you a
+paid re-run of research you already have.
+
 ## Search lanes
 
 Scout probes every configured `exa*` MCP server with a **real search** and shows
