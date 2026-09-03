@@ -130,6 +130,24 @@ Scout shows the credit range and asks before spending, and every result is
 cached in `accounts/apollo-cache.json` — re-enriching an account you already
 pulled costs nothing.
 
+## Search lanes
+
+Scout probes every configured `exa*` MCP server with a **real search** and shows
+`N/M search lanes · waves of N×5` in the header. If a lane is configured but not
+searching, the app says so loudly instead of letting runs quietly degrade.
+
+This exists because the failure is otherwise invisible: `claude mcp list` reports
+a server with a dead key as **"✔ Connected"**, since the key rides in the URL
+query string — the transport handshake succeeds and only the searches 401. The
+orchestrator builds its lane list from servers that *respond*, so a dead key
+still counts as a lane: it widens the waves and sends half the accounts down a
+lane that silently falls back to plain WebSearch. **Never trust `claude mcp list`
+to tell you a key works.**
+
+Exa's default limit is 10 QPS per key. A deep-dive researcher averages ~0.06
+searches/sec, so the binding moment is wave start, when every agent fires its
+first search at once — hence ~5 concurrent subagents per key.
+
 ## Brief formats and scoring
 
 Briefs written before tier scoring existed carry no `Tier:` line, and no

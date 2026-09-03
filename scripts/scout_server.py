@@ -26,7 +26,10 @@ import signal
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -320,14 +323,21 @@ def app_state():
     today = date.today()
     briefs = attach_enrichment(load_briefs(today, load_email_map()))
     by_slug = {b["slug"]: b for b in briefs}
+    # Slug alone is too strict a join: an accounts CSV says "Docusign, Inc."
+    # while the brief is docusign.md, and the row would read "no brief" —
+    # inviting a paid re-run of research that already exists.
+    by_norm = {}
+    for b in briefs:
+        by_norm.setdefault(normalize_company(b["company"]), b)
+        by_norm.setdefault(normalize_company(b["slug"].replace("-", " ")), b)
     cl = load_closed_lost()
     usage = _usage_slugs()
 
     accounts = _read_accounts()
     for a in accounts:
         slug = slugify(a["company"])
-        b = by_slug.get(slug)
-        a["slug"] = slug
+        b = by_slug.get(slug) or by_norm.get(normalize_company(a["company"]))
+        a["slug"] = b["slug"] if b else slug
         a["has_brief"] = bool(b)
         a["tier"] = b["tier"] if b else ""
         a["age_days"] = b["ageDays"] if b else None
@@ -344,6 +354,7 @@ def app_state():
         "usage_companies": sorted(usage),
         "run": run_status(),
         "apollo": apollo_status(),
+        "lanes": lane_status(),
         "generated": today.isoformat(),
     }
 
@@ -407,6 +418,80 @@ def enrich_estimate(payload):
                              force=bool(payload.get("force")))
     est.update(slug=b["slug"], company=b["company"], domain=b.get("domain", ""))
     return 200, est
+
+
+# ---------------------------------------------------------------- search lanes
+# A dead Exa key is invisible where you'd look for it: `claude mcp list` reports
+# the server "Connected" because the key rides in the URL query string, so the
+# transport handshake succeeds and only the searches 401. The orchestrator builds
+# its lane list from servers that respond, so a dead key still counts as a lane —
+# it widens the waves and sends half the accounts down a lane that silently falls
+# back to plain WebSearch. The only honest check is a real search.
+CLAUDE_CONFIG = Path.home() / ".claude.json"
+LANE_TTL = 900  # seconds; a search per key is cheap but not free
+_lanes = {"at": 0.0, "lanes": []}
+
+
+def _exa_lanes():
+    """[(name, key)] for every configured exa* MCP server."""
+    try:
+        cfg = json.loads(CLAUDE_CONFIG.read_text())
+    except Exception:
+        return []
+    out = []
+    for name, s in sorted((cfg.get("mcpServers") or {}).items()):
+        if not re.fullmatch(r"exa\d*", name):
+            continue
+        m = re.search(r"exaApiKey=([^&]+)", s.get("url", "") or "")
+        if m:
+            out.append((name, m.group(1)))
+    return out
+
+
+def _probe_lane(name, key):
+    req = urllib.request.Request(
+        "https://api.exa.ai/search",
+        data=json.dumps({"query": "revenue leader appointed", "numResults": 1}).encode(),
+        headers={"Content-Type": "application/json", "x-api-key": key}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return {"name": name, "key_tail": key[-4:], "ok": r.status == 200,
+                    "status": r.status, "detail": ""}
+    except urllib.error.HTTPError as e:
+        return {"name": name, "key_tail": key[-4:], "ok": False, "status": e.code,
+                "detail": (e.read() or b"").decode("utf-8", "replace")[:120]}
+    except Exception as e:
+        return {"name": name, "key_tail": key[-4:], "ok": False, "status": 0,
+                "detail": f"{type(e).__name__}: {e}"}
+
+
+def lane_status(force=False):
+    """Which Exa lanes actually search. Cached — /api/state polls every 3s."""
+    now = time.time()
+    if force or now - _lanes["at"] > LANE_TTL or not _lanes["lanes"]:
+        lanes = _exa_lanes()
+        if lanes:
+            with ThreadPoolExecutor(max_workers=len(lanes)) as ex:
+                probed = list(ex.map(lambda a: _probe_lane(*a), lanes))
+        else:
+            probed = []
+        _lanes.update(at=now, lanes=probed)
+    lanes = _lanes["lanes"]
+    live = [l for l in lanes if l["ok"]]
+    dead = [l for l in lanes if not l["ok"]]
+    return {
+        "lanes": lanes,
+        "configured": len(lanes),
+        "live": len(live),
+        # the orchestrator sizes waves at ~5 concurrent subagents per working key
+        "wave_size": len(live) * 5,
+        "degraded": bool(dead),
+        "checked": datetime.fromtimestamp(_lanes["at"]).isoformat(timespec="seconds"),
+        "warning": ("" if not dead else
+                    f"{', '.join(l['name'] for l in dead)} configured but NOT searching — "
+                    f"runs will size waves for {len(lanes)} lanes and silently fall back to "
+                    f"WebSearch on the dead one. Fix the key or remove the server."),
+    }
 
 
 _apollo_health = {"at": 0.0, "ok": False, "detail": "not checked"}
@@ -587,6 +672,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, run_status())
         elif path == "/api/closed-lost":
             self._send(200, closed_lost_state())
+        elif path == "/api/lanes":
+            self._send(200, lane_status(force="refresh" in self.path))
         elif path == "/api/apollo/status":
             self._send(200, apollo_status(force="refresh" in self.path))
         elif path == "/api/usage-data":

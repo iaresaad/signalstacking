@@ -91,6 +91,12 @@
   .tagx.bad{background:var(--hot-bg);color:var(--hot-ink)}
   .entrymark{background:var(--hot-bg);color:var(--hot-ink);border-radius:4px;padding:0 5px;font-size:11px}
   .legacybox{background:var(--chip);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--ink-2)}
+  #lanes{display:flex;align-items:center;gap:8px;font-size:12px;margin-left:auto}
+  #lanes .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  #lanes.bad .dot{background:var(--hot-ink)}
+  #lanes.bad{color:var(--hot-ink);font-weight:600}
+  .lanewarn{background:var(--hot-bg);color:var(--hot-ink);border-radius:10px;
+    padding:10px 14px;font-size:13px;margin:10px 0}
   .tabs{display:flex;gap:6px;flex-wrap:wrap}
   .tabs button{background:var(--chip);color:var(--ink-2);border:1px solid var(--line);font-size:12px;padding:6px 12px}
   .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -137,6 +143,7 @@
   <header>
     <h1>Signal Scout</h1>
     <p>who's in-market right now, and who to email first — all local</p>
+    <span id="lanes" title="Exa search lanes — verified with a real search"></span>
     <span class="pill" id="runpill">idle</span>
   </header>
 
@@ -352,7 +359,24 @@ function detailHtml(b){
   </div></td></tr>`;
 }
 
+function renderLanes(){
+  const l = STATE.lanes; const el = $('lanes'); if (!el) return;
+  if (!l || !l.configured){ el.textContent = ''; return; }
+  el.className = l.degraded ? 'bad' : '';
+  el.innerHTML = `<span class="dot"></span>${l.live}/${l.configured} search lane`
+    + (l.configured === 1 ? '' : 's') + ` · waves of ${l.wave_size}`;
+  el.title = l.warning || `all lanes verified by real search at ${l.checked}`;
+  let w = $('lanewarn');
+  if (l.degraded){
+    if (!w){ w = document.createElement('div'); w.id = 'lanewarn'; w.className = 'lanewarn';
+      $('runcard').parentNode.insertBefore(w, $('runcard')); }
+    w.hidden = false;
+    w.innerHTML = '<b>Search lanes degraded.</b> ' + esc(l.warning);
+  } else if (w){ w.hidden = true; }
+}
+
 function render(){
+  renderLanes();
   // run pill + card
   const r = STATE.run || {state:'idle'};
   const pill = $('runpill');
