@@ -51,6 +51,10 @@ ALLOWED_TOOLS = (
 )
 
 _lock = threading.Lock()
+# Guards every status.json read-modify-write. The monitor thread and any
+# polling request's orphan check both touch it; without this they interleave
+# and leave a half-overwritten file that no longer parses as JSON.
+_status_lock = threading.RLock()
 
 
 # ---------------------------------------------------------------- run manager
@@ -73,7 +77,8 @@ def active_run():
         ACTIVE.unlink(missing_ok=True)
         return None
     if not _pid_alive(info.get("pid")):
-        # orphaned (server or claude died) — finalize its status and clear
+        # PID gone. Usually the monitor thread is mid-cleanup and has already
+        # recorded the real outcome — only claim "orphaned" if it never did.
         _finalize_status(info.get("id"), "failed", note="orphaned — process gone")
         ACTIVE.unlink(missing_ok=True)
         return None
@@ -92,24 +97,33 @@ def _read_status(run_id):
 
 
 def _write_status(run_id, st):
-    _status_path(run_id).write_text(json.dumps(st, indent=1))
+    """Atomic replace — a partial write must never leave unparseable JSON."""
+    with _status_lock:
+        path = _status_path(run_id)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(st, indent=1))
+        os.replace(tmp, path)
+
+
+TERMINAL = ("done", "failed", "cancelled")
 
 
 def _finalize_status(run_id, state, exit_code=None, note=""):
     if not run_id:
         return
-    st = _read_status(run_id) or {}
-    if st.get("state") in ("done", "failed", "cancelled"):
-        return
-    st.update(state=state, ended=datetime.now().isoformat(timespec="seconds"))
-    if exit_code is not None:
-        st["exit_code"] = exit_code
-    if note:
-        st["note"] = note
-    try:
-        _write_status(run_id, st)
-    except Exception:
-        pass
+    with _status_lock:  # re-read inside the lock: the monitor may have just finished
+        st = _read_status(run_id) or {}
+        if st.get("state") in TERMINAL:
+            return
+        st.update(state=state, ended=datetime.now().isoformat(timespec="seconds"))
+        if exit_code is not None:
+            st["exit_code"] = exit_code
+        if note:
+            st["note"] = note
+        try:
+            _write_status(run_id, st)
+        except Exception:
+            pass
 
 
 def last_run_id():
@@ -129,23 +143,25 @@ def _monitor(run_id, proc, before):
     """Track a running claude process: new/updated briefs + exit state."""
     while True:
         done = proc.poll() is not None
-        st = _read_status(run_id) or {}
-        now = _research_mtimes()
-        st["briefs_new"] = sorted(
-            n[:-3] for n, m in now.items() if n not in before or m > before[n] + 1
-        )
-        if done:
-            cancelled = st.get("state") == "cancelling"
-            st.update(
-                state="cancelled" if cancelled
-                else ("done" if proc.returncode == 0 else "failed"),
-                exit_code=proc.returncode,
-                ended=datetime.now().isoformat(timespec="seconds"),
+        with _status_lock:  # read-modify-write must be one step (see _write_status)
+            st = _read_status(run_id) or {}
+            now = _research_mtimes()
+            st["briefs_new"] = sorted(
+                n[:-3] for n, m in now.items() if n not in before or m > before[n] + 1
             )
+            if done:
+                cancelled = st.get("state") == "cancelling"
+                st.update(
+                    state="cancelled" if cancelled
+                    else ("done" if proc.returncode == 0 else "failed"),
+                    exit_code=proc.returncode,
+                    ended=datetime.now().isoformat(timespec="seconds"),
+                )
+                st.pop("note", None)  # drop any speculative "orphaned" note
+                _write_status(run_id, st)
+                ACTIVE.unlink(missing_ok=True)
+                return
             _write_status(run_id, st)
-            ACTIVE.unlink(missing_ok=True)
-            return
-        _write_status(run_id, st)
         threading.Event().wait(2)
 
 
