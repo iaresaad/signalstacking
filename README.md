@@ -6,12 +6,28 @@ Core belief: one signal is a guess; a **stack** is a thesis. Where a company hir
 
 ## Quick start
 
-**Signal Scout (the app):**
+**Signal Scout (the app) — one command:**
 
 ```bash
-python3 scripts/scout_server.py
-# → open http://127.0.0.1:8765
+./scout
 ```
+
+Starts the server (reusing one already running), verifies every search lane with
+a real search, confirms the do-not-contact list actually loaded, checks the
+Apollo key, and opens the app. It prints one line per check and ends in either
+`READY` or `ATTENTION` — so "is this safe to send from?" is answered before you
+look at the UI, not after.
+
+```
+[  ok  ] search lanes          2/2 verified by real search · waves of 10
+[  ok  ] do-not-contact list   934 companies · 2 of your accounts blocked
+[  ok  ] apollo enrichment     key valid · 9 cached · emails only (no tunnel)
+READY → http://127.0.0.1:8765
+```
+
+`./scout status` re-runs the checks without starting anything; `./scout stop`
+shuts the server down. A failed check exits non-zero, so it composes with other
+tooling.
 
 Type a company for a one-off scout, drop in an accounts CSV (Clay exports work
 unchanged), attach signal sources (closed-lost CRM export, product usage data),

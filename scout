@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""Bring Signal Scout up and prove it is healthy — one command.
+
+    ./scout          start (or reuse) the server, run health checks, open the app
+    ./scout status   health checks only
+    ./scout stop     stop the server
+
+Everything the app needs already lives on disk (.env, accounts/*.csv, the Apollo
+cache), so this is only ever "start it and tell me what is wrong", never setup.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+SERVER = ROOT / "scripts" / "scout_server.py"
+PORTS = range(8765, 8776)
+OK, WARN, BAD = "  ok  ", " warn ", " FAIL "
+
+
+def probe(port, path="/api/state", timeout=2):
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=timeout) as r:
+            return json.loads(r.read())
+    except Exception:
+        return None
+
+
+def running_port():
+    for p in PORTS:
+        if probe(p, "/api/run/status", timeout=1) is not None:
+            return p
+    return None
+
+
+def start():
+    port = running_port()
+    if port:
+        print(f"· server already running on {port} — reusing it")
+        return port
+    log = ROOT / "runs" / "scout.log"
+    log.parent.mkdir(exist_ok=True)
+    with log.open("a") as f:
+        subprocess.Popen([sys.executable, str(SERVER), "--port", str(PORTS[0])],
+                         cwd=ROOT, stdout=f, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(60):
+        time.sleep(0.25)
+        port = running_port()
+        if port:
+            print(f"· started server on {port}   (log: runs/scout.log)")
+            return port
+    print(f"{BAD} server did not come up — see runs/scout.log")
+    sys.exit(1)
+
+
+def stop():
+    n = subprocess.run(["pkill", "-f", "scout_server.py --port"]).returncode
+    print("· stopped" if n == 0 else "· nothing was running")
+
+
+def line(tag, label, detail=""):
+    print(f"[{tag}] {label:<34}{detail}")
+
+
+def checks(port):
+    # the first /api/state probes every search lane with a real search, so it
+    # is legitimately slow; everything after it is served from cache
+    st = probe(port, timeout=45)
+    if st is None:
+        line(BAD, "app state", "server not responding")
+        return False
+    problems = []
+
+    lanes = st.get("lanes") or {}
+    if not lanes.get("configured"):
+        line(WARN, "search lanes", "no exa* MCP servers configured")
+    elif lanes.get("degraded"):
+        line(BAD, "search lanes", f"{lanes['live']}/{lanes['configured']} live — {lanes['warning'][:70]}")
+        problems.append("a search lane is configured but not searching")
+    else:
+        line(OK, "search lanes",
+             f"{lanes['live']}/{lanes['configured']} verified by real search · waves of {lanes['wave_size']}")
+
+    sup = st.get("suppressed_rows", 0)
+    blocked = [a["company"] for a in st.get("accounts", []) if a.get("suppressed")]
+    if not sup:
+        line(BAD, "do-not-contact list", "EMPTY — nothing is suppressed, do not send")
+        problems.append("suppression list is empty")
+    else:
+        line(OK, "do-not-contact list",
+             f"{sup} companies · {len(blocked)} of your accounts blocked"
+             + (f" ({', '.join(blocked[:3])})" if blocked else ""))
+
+    ap = st.get("apollo") or {}
+    if not ap.get("key_configured"):
+        line(WARN, "apollo enrichment", "no APOLLO_API_KEY in .env — emails unavailable")
+    elif not ap.get("key_valid"):
+        line(BAD, "apollo enrichment", "key rejected — needs a master key")
+        problems.append("apollo key invalid")
+    else:
+        mob = "mobiles ON" if ap.get("phone_available") else "emails only (no tunnel)"
+        line(OK, "apollo enrichment", f"key valid · {ap.get('cached_people',0)} cached · {mob}")
+
+    accts, briefs = st.get("accounts", []), st.get("briefs", [])
+    line(OK if accts else WARN, "accounts loaded", f"{len(accts)} in the picker")
+    c = st.get("counts", {})
+    line(OK if briefs else WARN, "briefs",
+         f"{len(briefs)} · {c.get('🔥',0)} in-market, {c.get('—',0)} legacy (unscored)")
+
+    run = st.get("run") or {}
+    if run.get("state") == "running":
+        line(WARN, "research run", f"one in progress: {run.get('prompt','')[:44]}")
+    return not problems
+
+
+def main():
+    cmd = (sys.argv[1] if len(sys.argv) > 1 else "start").lower()
+    if cmd == "stop":
+        return stop()
+    print("\nSignal Scout")
+    print("─" * 62)
+    port = running_port() if cmd == "status" else start()
+    if not port:
+        print(f"{BAD} not running — use ./scout")
+        sys.exit(1)
+    healthy = checks(port)
+    url = f"http://127.0.0.1:{port}"
+    print("─" * 62)
+    if healthy:
+        print(f"READY → {url}")
+    else:
+        print(f"ATTENTION — fix the FAIL line(s) above before sending anything.\n"
+              f"         → {url}")
+    if cmd != "status":
+        subprocess.run(["open", url], stderr=subprocess.DEVNULL)
+    print()
+    sys.exit(0 if healthy else 1)
+
+
+if __name__ == "__main__":
+    main()
