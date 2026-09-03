@@ -20,14 +20,18 @@ import io
 import json
 import os
 import re
+import secrets
 import shutil
 import signal
 import subprocess
 import threading
+import time
+import urllib.parse
 from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import apollolib
 import brieflib
 import costlib
 from brieflib import (ACCOUNTS, FRESH_DAYS, RESEARCH, ROOT, load_briefs,
@@ -314,7 +318,7 @@ def _read_accounts():
 
 def app_state():
     today = date.today()
-    briefs = load_briefs(today, load_email_map())
+    briefs = attach_enrichment(load_briefs(today, load_email_map()))
     by_slug = {b["slug"]: b for b in briefs}
     cl = load_closed_lost()
     usage = _usage_slugs()
@@ -339,8 +343,88 @@ def app_state():
         "closed_lost_rows": len(set(id(v) for v in cl.values())),
         "usage_companies": sorted(usage),
         "run": run_status(),
+        "apollo": apollo_status(),
         "generated": today.isoformat(),
     }
+
+
+def _brief_by_slug(slug):
+    today = date.today()
+    for b in brieflib.load_briefs(today, load_email_map()):
+        if b["slug"] == slug:
+            return b
+    return None
+
+
+def attach_enrichment(briefs):
+    """Merge cached Apollo data onto each brief's contacts (no API calls)."""
+    cache = apollolib.load_cache()
+    for b in briefs:
+        n_mail = n_phone = 0
+        for c in b.get("contacts", []):
+            rec = cache.get(apollolib.person_key(c, b.get("domain", "")))
+            c["apollo"] = rec or None
+            if rec and rec.get("emails"):
+                n_mail += 1
+            if rec and rec.get("phones"):
+                n_phone += 1
+        b["enriched"] = {"contacts": len(b.get("contacts", [])),
+                         "with_email": n_mail, "with_phone": n_phone}
+    return briefs
+
+
+def enrich_brief(payload):
+    """Enrich one brief's buying committee. -> (code, dict)"""
+    slug = (payload.get("slug") or "").strip()
+    b = _brief_by_slug(slug)
+    if not b:
+        return 404, {"error": f"no brief for slug {slug!r}"}
+    people = b.get("contacts") or []
+    if not people:
+        return 400, {"error": "this brief names no contacts to enrich"}
+    if not payload.get("all"):
+        people = [c for c in people if c.get("entry")] or people[:1]
+    ok, res = apollolib.enrich(
+        people, domain=b.get("domain", ""),
+        reveal_phone=bool(payload.get("reveal_phone", True)),
+        force=bool(payload.get("force")))
+    if not ok:
+        return 502, res
+    res["slug"] = slug
+    res["company"] = b["company"]
+    return 200, res
+
+
+def enrich_estimate(payload):
+    b = _brief_by_slug((payload.get("slug") or "").strip())
+    if not b:
+        return 404, {"error": "no such brief"}
+    people = b.get("contacts") or []
+    if not payload.get("all"):
+        people = [c for c in people if c.get("entry")] or people[:1]
+    est = apollolib.estimate(people, b.get("domain", ""),
+                             reveal_phone=bool(payload.get("reveal_phone", True)),
+                             force=bool(payload.get("force")))
+    est.update(slug=b["slug"], company=b["company"], domain=b.get("domain", ""))
+    return 200, est
+
+
+_apollo_health = {"at": 0.0, "ok": False, "detail": "not checked"}
+APOLLO_HEALTH_TTL = 300  # seconds
+
+
+def apollo_status(force=False):
+    """Key/webhook status. The health probe is cached — /api/state polls every
+    3s and must not make a network call to Apollo on every poll."""
+    now = time.time()
+    if force or now - _apollo_health["at"] > APOLLO_HEALTH_TTL:
+        ok, msg = apollolib.health()
+        _apollo_health.update(at=now, ok=ok, detail=msg)
+    ok, msg = _apollo_health["ok"], _apollo_health["detail"]
+    return {"key_configured": bool(apollolib.api_key()), "key_valid": ok, "detail": msg,
+            "phone_available": apollolib.phone_available(),
+            "webhook": apollolib.webhook_url(),
+            "cached_people": len(apollolib.load_cache())}
 
 
 def estimate(payload):
@@ -503,6 +587,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, run_status())
         elif path == "/api/closed-lost":
             self._send(200, closed_lost_state())
+        elif path == "/api/apollo/status":
+            self._send(200, apollo_status(force="refresh" in self.path))
         elif path == "/api/usage-data":
             md = USAGE_MD.read_text(encoding="utf-8") if USAGE_MD.is_file() else ""
             self._send(200, {"markdown": md, "companies": sorted(_usage_slugs())})
@@ -530,6 +616,30 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, estimate(payload))
         elif path == "/api/run/cancel":
             self._send(*cancel_run())
+        elif path == "/api/enrich":
+            payload = self._json_body()
+            if payload is None:
+                return self._send(400, {"error": "expected a JSON object body"})
+            self._send(*enrich_brief(payload))
+        elif path == "/api/enrich/estimate":
+            payload = self._json_body()
+            if payload is None:
+                return self._send(400, {"error": "expected a JSON object body"})
+            self._send(*enrich_estimate(payload))
+        elif path == "/api/apollo/webhook":
+            # Apollo delivers mobile numbers here, minutes after the sync match.
+            # The tunnel is public, so an unauthenticated endpoint would let
+            # anyone inject fabricated numbers — require the shared secret.
+            token = ""
+            if "?" in self.path:
+                token = dict(urllib.parse.parse_qsl(self.path.split("?", 1)[1])).get("t", "")
+            if not secrets.compare_digest(token, apollolib.webhook_token()):
+                return self._send(403, {"error": "bad or missing webhook token"})
+            payload = self._json_body()
+            if payload is None:
+                return self._send(400, {"error": "expected a JSON object body"})
+            n, keys = apollolib.apply_webhook(payload)
+            self._send(200, {"updated": n, "people": keys})
         elif path == "/api/accounts":
             replace = "replace=0" not in self.path
             self._send(*save_accounts(self._body(), replace))
@@ -565,7 +675,12 @@ def main():
             continue
     else:
         raise SystemExit(f"no free port in {args.port}-{args.port + 10}")
-    print(f"Signal Scout → http://127.0.0.1:{port}  (Ctrl-C to stop)")
+    # flush: when stdout is redirected (nohup, a task runner) block buffering
+    # hides this line, and with the 8765..8775 fallback you cannot otherwise
+    # tell which port the server actually took.
+    if port != args.port:
+        print(f"port {args.port} was busy — using {port}", flush=True)
+    print(f"Signal Scout → http://127.0.0.1:{port}  (Ctrl-C to stop)", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

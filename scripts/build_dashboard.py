@@ -20,14 +20,25 @@ import csv
 import json
 from datetime import date
 
+import apollolib
 from brieflib import (  # shared with scout_server.py — edit brieflib, not here
     RESEARCH, TIER_ORDER, load_briefs, load_email_map,
 )
 
 
+def _best_contact_email(b, cache):
+    """Apollo's verified address for the entry contact, if we have one."""
+    for c in b.get("contacts", []):
+        rec = cache.get(apollolib.person_key(c, b.get("domain", "")))
+        if rec and rec.get("emails"):
+            return rec["emails"][0]["email"]
+    return ""
+
+
 def build():
     today = date.today()
     briefs = load_briefs(today, load_email_map())
+    cache = apollolib.load_cache()
 
     # ---- sequencer export ------------------------------------------------
     RESEARCH.mkdir(exist_ok=True)
@@ -39,10 +50,41 @@ def build():
                     "touch2_bump", "touch3_linkedin", "researched", "brief"])
         for b in briefs:
             v = b["touch1Variants"]
-            w.writerow([b["company"], b["tierLabel"], b["contact"], b["entry"], b["email"],
+            w.writerow([b["company"], b["tierLabel"], b["contact"], b["entry"],
+                        b["email"] or _best_contact_email(b, cache),
                         b["whyNow"], b["switchPlay"], b["touch1"],
                         v[1]["body"] if len(v) > 1 else "", v[2]["body"] if len(v) > 2 else "",
                         b["touch2"], b["touch3"], b["researched"], f"research/{b['file']}"])
+
+    # ---- per-contact export (Apollo) -------------------------------------
+    # The account export stays one-row-per-account so existing sequencer
+    # imports keep working; multithreading needs a row per person.
+    contacts_csv = RESEARCH / "contacts-export.csv"
+    n_rows = n_mail = n_phone = 0
+    with contacts_csv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["company", "domain", "tier", "name", "title", "role", "entry_point",
+                    "email", "email_status", "mobile", "other_phones", "dnc",
+                    "linkedin", "apollo_matched", "brief"])
+        for b in briefs:
+            for c in b.get("contacts", []):
+                rec = cache.get(apollolib.person_key(c, b.get("domain", ""))) or {}
+                emails = rec.get("emails") or []
+                phones = rec.get("phones") or []
+                mobile = next((p["number"] for p in phones if p.get("mobile")), "")
+                other = "; ".join(p["number"] for p in phones if not p.get("mobile"))
+                n_rows += 1
+                n_mail += bool(emails)
+                n_phone += bool(phones)
+                w.writerow([
+                    b["company"], b.get("domain", ""), b["tierLabel"], c["name"],
+                    c.get("title", ""), c.get("role", ""), "yes" if c.get("entry") else "",
+                    emails[0]["email"] if emails else "",
+                    emails[0]["status"] if emails else "",
+                    mobile, other,
+                    "yes" if any(p.get("dnc") for p in phones) else "",
+                    c.get("linkedin", ""), "yes" if rec.get("matched") else "",
+                    f"research/{b['file']}"])
 
     # ---- dashboard -------------------------------------------------------
     counts = {t: sum(1 for b in briefs if b["tier"] == t) for t in TIER_ORDER}
@@ -63,6 +105,8 @@ def build():
           f"🔥{counts['🔥']} 🟡{counts['🟡']} ⚪{counts['⚪']} untiered {counts['—']})")
     print(f"export:    research/outreach-export.csv ({len(briefs)} rows, "
           f"{sum(1 for b in briefs if b['email'])} with emails)")
+    print(f"contacts:  research/contacts-export.csv ({n_rows} people, "
+          f"{n_mail} with email, {n_phone} with phone)")
 
 
 DASHBOARD_TEMPLATE = r"""<!doctype html>
@@ -146,7 +190,7 @@ DASHBOARD_TEMPLATE = r"""<!doctype html>
     <div class="tile" data-tier="🔥"><div class="n">__N_HOT__</div><div class="l">🔥 In-market now</div></div>
     <div class="tile" data-tier="🟡"><div class="n">__N_WARM__</div><div class="l">🟡 Warming</div></div>
     <div class="tile" data-tier="⚪"><div class="n">__N_MON__</div><div class="l">⚪ Monitor</div></div>
-    <div class="tile" data-tier="—"><div class="n">__N_UNT__</div><div class="l">Untiered (legacy)</div></div>
+    <div class="tile" data-tier="—"><div class="n">__N_UNT__</div><div class="l">Legacy — never scored</div></div>
   </div>
   <div class="controls"><input id="q" type="search" placeholder="Search company, contact, signal…"></div>
   <div class="tablebox"><table>

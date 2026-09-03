@@ -28,3 +28,9 @@ runs/
 # Generated prospect briefs — contain real people, contact info, and outreach targeting.
 # Keep these out of the repo (especially if it ever goes public). Index is generated too.
 research/
+
+# Secrets: Apollo (and any other) API keys — never commit
+.env
+
+# Apollo enrichment cache: real emails and mobile numbers for real people
+accounts/apollo-cache.json

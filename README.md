@@ -86,8 +86,58 @@ orchestrator (your context stays clean — it only ever sees compact summaries)
 | `accounts/closed-lost.csv` | Closed-lost CRM export → re-engagement signals + angles (upload in Scout or copy from `.example`; gitignored) | after each pipeline review |
 | `scripts/cost-model.json` | Per-run token-cost estimates shown before every launch | actuals drift from estimates |
 | `.claude/signal-stacking/trumpet-usage-data.md` | Optional product-usage data for proof lines | you have signup data (gitignored) |
+| `.env` | `APOLLO_API_KEY` (+ optional `APOLLO_WEBHOOK_BASE`) for contact enrichment — copy from `.env.example` (gitignored) | key rotates, or you start a tunnel |
 | `.claude/commands/signal-stacking.md` | Orchestration | rarely |
 | `.claude/agents/*.md` | Triage + deep-dive methodology, email rules | rarely |
+
+## Contact enrichment (Apollo)
+
+Briefs name the buying committee; Apollo turns those names into reachable
+contacts. Open an account in Scout and hit **Enrich with Apollo** — every
+person the brief names (entry point, economic buyer, influencers, champions,
+exec sponsor) is matched and their work email filled in. Results land in
+`research/contacts-export.csv`, one row per person.
+
+Setup is one line — put your **master** API key in `.env`:
+
+```bash
+cp .env.example .env      # then paste your key into APOLLO_API_KEY
+```
+
+Standard Apollo keys are rejected by the enrichment endpoints; you need a
+master key from Settings → Integrations → API.
+
+**Mobile numbers need a public webhook.** This is an Apollo constraint, not a
+choice: `reveal_phone_number` is refused unless you also pass a `webhook_url`,
+and the numbers are delivered there asynchronously minutes later. Scout serves
+that endpoint at `/api/apollo/webhook`, but it binds to 127.0.0.1, so Apollo
+cannot reach it until you expose it:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8765        # prints an https URL
+echo 'APOLLO_WEBHOOK_BASE=https://<that-url>' >> .env  # then restart Scout
+```
+
+Without that, enrichment still runs and returns emails — the UI says
+"emails only · no tunnel for mobiles" rather than implying nobody has a phone.
+The webhook URL carries a generated `APOLLO_WEBHOOK_TOKEN`; requests without it
+are rejected, since a public tunnel would otherwise let anyone inject
+fabricated numbers into your cache.
+
+**Credits are real money.** Roughly 1 credit per email, plus ~8 more when a
+mobile is actually found, so a nine-person committee with phones can cost ~80.
+Scout shows the credit range and asks before spending, and every result is
+cached in `accounts/apollo-cache.json` — re-enriching an account you already
+pulled costs nothing.
+
+## Brief formats and scoring
+
+Briefs written before tier scoring existed carry no `Tier:` line, and no
+technographic data survives to score them offline. Those are labelled
+**"Legacy — never scored"** rather than "untiered", which would wrongly imply
+the scorer looked at them and found nothing. Each one has a **Re-run this
+account** button that puts it back through the pipeline for a real tier.
+Enrichment works on legacy briefs regardless — they still name contacts.
 
 ## What's not committed
 
