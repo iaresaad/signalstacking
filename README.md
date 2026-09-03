@@ -130,6 +130,24 @@ Scout shows the credit range and asks before spending, and every result is
 cached in `accounts/apollo-cache.json` — re-enriching an account you already
 pulled costs nothing.
 
+## Evidence before draft
+
+Each account's detail panel leads with **What it found** — every sourced claim
+the research produced, newest first, each with a kind chip (signal / hiring /
+stack / filing / closed-lost) and clickable source links — and only then shows
+**The draft**. A claim with no citation is labelled `no source cited` rather
+than sitting silently next to cited ones.
+
+The ordering is the point: the copy is only as trustworthy as the evidence
+behind it, so the evidence is what you read first and what you check when a
+line in the email looks too good.
+
+Fit and timing render as separate chips rather than one blended number, since
+they answer different questions ("are they the kind of company that buys?" vs
+"are they buying now?"). Timing shows a percentile against your own book only
+once there are at least 8 scored accounts to rank against — below that a
+percentile is noise dressed as precision.
+
 ## Suppression (do-not-contact)
 
 `accounts/do-not-contact.csv` (`company,domain,reason,until`) lists current

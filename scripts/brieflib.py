@@ -282,6 +282,60 @@ def brief_domain(md, company=""):
     return best
 
 
+EVIDENCE_SECTIONS = [
+    ("signal", ("Recent Signals", "Signals")),
+    ("hiring", ("Hiring & Growth Triggers", "Hiring and Growth Triggers", "Hiring")),
+    ("stack", ("Tech Stack Detected", "Tech Stack")),
+    ("filing", ("Financial Filings & Earnings", "Financial Filings")),
+    ("closed-lost", ("Closed-Lost History",)),
+]
+LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)]+)\)")
+DATE_RE = re.compile(r"(\d{4}-\d{2}(?:-\d{2})?)")
+
+
+def parse_evidence(md):
+    """Every sourced claim in a brief -> [{kind, date, text, sources}].
+
+    Three bullet shapes exist across brief generations — `- **DATE** — claim
+    (links)`, `- claim — points to: X — DATE — link`, and `- Tool (flames) —
+    evidence: … — DATE — links`. All three carry the same three things, so the
+    parser looks for those rather than matching each layout.
+
+    This backs the evidence-first panel: the reader sees what was found, with
+    its citations, before the copy written from it.
+    """
+    out = []
+    for kind, names in EVIDENCE_SECTIONS:
+        body = section(md, *names)
+        if not body:
+            continue
+        for line in body.splitlines():
+            line = line.strip()
+            if not line.startswith(("- ", "* ")):
+                continue
+            raw = line[2:].strip()
+            sources = [{"label": m.group(1), "url": m.group(2)}
+                       for m in LINK_RE.finditer(raw)]
+            text = LINK_RE.sub("", raw)
+            text = re.sub(r"\(\s*[,;]?\s*\)", "", text)      # emptied link parens
+            m = DATE_RE.search(text)
+            date = m.group(1) if m else ""
+            if date:
+                text = text.replace(f"**{date}**", "", 1).replace(date, "", 1)
+            # a stripped date leaves crawl bookkeeping dangling ("… — accessed")
+            text = re.sub(r"[\s—\-–,;]*\b(?:accessed|crawled|retrieved|as of)\b"
+                          r"[\s:,—\-–]*$", "", text, flags=re.I)
+            text = re.sub(r"[\s—\-–,;]*\bundated\b[\s,;]*", " ", text, flags=re.I)
+            text = strip_md(text).strip(" —-–,;·")
+            if not text:
+                continue
+            out.append({"kind": kind, "date": date, "text": text, "sources": sources})
+    # newest first, undated last — recency is the whole point of a signal
+    out.sort(key=lambda e: (e["date"] == "", e["date"]), reverse=False)
+    out.sort(key=lambda e: e["date"] or "0000", reverse=True)
+    return out
+
+
 def parse_brief(path, today, email_map):
     md = path.read_text(encoding="utf-8")
     m = re.search(
@@ -387,6 +441,7 @@ def parse_brief(path, today, email_map):
         "filings": filings,
         "closedLost": closed_lost,
         "contacts": brief_contacts(md, entry_meta),
+        "evidence": parse_evidence(md),
         "domain": brief_domain(md, company),
         "markdown": md,
     }

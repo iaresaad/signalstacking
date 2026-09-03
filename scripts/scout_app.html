@@ -95,8 +95,30 @@
   #lanes .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
   #lanes.bad .dot{background:var(--hot-ink)}
   #lanes.bad{color:var(--hot-ink);font-weight:600}
+  .acct.sup{opacity:.55}
+  .acct.sup .nm{text-decoration:line-through}
+  .badge.sup{background:var(--hot-bg);color:var(--hot-ink);font-weight:600}
   .lanewarn{background:var(--hot-bg);color:var(--hot-ink);border-radius:10px;
     padding:10px 14px;font-size:13px;margin:10px 0}
+  .ev{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .ev .evhead{display:flex;align-items:center;gap:10px;padding:9px 14px;
+    background:var(--chip);font-weight:600;font-size:13px}
+  .ev .evhead .grow{flex:1}
+  .ev ul{list-style:none;margin:0;padding:0}
+  .ev li{padding:9px 14px;border-top:1px solid var(--line);font-size:13px;display:flex;gap:10px}
+  .ev .when{flex:0 0 84px;color:var(--ink-2);font-variant-numeric:tabular-nums;font-size:12px}
+  .ev .what{flex:1}
+  .kind{display:inline-block;border-radius:4px;padding:0 6px;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.04em;background:var(--chip);color:var(--ink-2);margin-right:6px}
+  .kind.signal{background:var(--hot-bg);color:var(--hot-ink)}
+  .kind.hiring{background:var(--warm-bg);color:var(--warm-ink)}
+  .kind.stack{background:var(--mon-bg);color:var(--mon-ink)}
+  .src{display:inline-block;margin:3px 4px 0 0;border:1px solid var(--line);border-radius:999px;
+    padding:1px 8px;font-size:11px;color:var(--ink-2);text-decoration:none}
+  .src:hover{color:var(--accent);border-color:var(--accent)}
+  .nosrc{font-size:11px;color:var(--warm-ink);background:var(--warm-bg);border-radius:999px;padding:1px 8px}
+  .drafthead{font-weight:600;font-size:13px;margin:2px 0 -4px}
+  .scorechips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   .tabs{display:flex;gap:6px;flex-wrap:wrap}
   .tabs button{background:var(--chip);color:var(--ink-2);border:1px solid var(--line);font-size:12px;padding:6px 12px}
   .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -334,6 +356,49 @@ function contactsHtml(b){
     <table><tbody>${cs.map(contactRow).join('')}</tbody></table></div>`;
 }
 
+const KIND_LABEL = {signal:'signal', hiring:'hiring', stack:'stack',
+                    filing:'filing', 'closed-lost':'closed-lost'};
+
+function evidenceHtml(b){
+  const ev = b.evidence || [];
+  if (!ev.length) return '';
+  const show = ev.slice(0, 6), rest = ev.slice(6);
+  const li = e => `<li>
+      <span class="when">${esc(e.date || '—')}</span>
+      <span class="what"><span class="kind ${esc(e.kind)}">${esc(KIND_LABEL[e.kind]||e.kind)}</span>${esc(e.text)}
+        <div>${e.sources.length
+          ? e.sources.map(s => `<a class="src" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join('')
+          : '<span class="nosrc">no source cited</span>'}</div>
+      </span></li>`;
+  return `<div class="ev">
+    <div class="chead evhead"><span>What it found</span>
+      <span class="meta">${ev.length} sourced claim${ev.length===1?'':'s'}</span><span class="grow"></span>
+      <span class="meta">newest first</span></div>
+    <ul>${show.map(li).join('')}</ul>
+    ${rest.length ? `<details><summary class="meta" style="padding:8px 14px">
+        show ${rest.length} older</summary><ul>${rest.map(li).join('')}</ul></details>` : ''}
+  </div>`;
+}
+
+// Percentile only means something against a book. With a handful of scored
+// accounts it is noise dressed as precision, so it stays hidden until there
+// are enough to rank against.
+const PCTL_MIN = 8;
+function scoreChips(b){
+  const bits = [];
+  if (b.fit) bits.push(`<span class="chip">fit ${esc(b.fit)}</span>`);
+  if (b.timing !== null && b.timing !== undefined){
+    const scored = (STATE.briefs||[]).filter(x => x.timing !== null && x.timing !== undefined);
+    let pct = '';
+    if (scored.length >= PCTL_MIN){
+      const below = scored.filter(x => x.timing < b.timing).length;
+      pct = ` · ${Math.round(100*below/scored.length)}th pctile`;
+    }
+    bits.push(`<span class="chip">timing ${b.timing} pts${pct}</span>`);
+  }
+  return bits.length ? `<div class="scorechips">${bits.join('')}</div>` : '';
+}
+
 function detailHtml(b){
   const entry = b.entryPoint
     ? `<div class="entrybox"><b>Best point of entry</b>${mdToHtml(b.entryPoint)}</div>` : '';
@@ -351,7 +416,8 @@ function detailHtml(b){
        scoring and carries no Fit/Timing data, so it is not ranked. Re-run it to score.
        <button class="rerun" data-rerun="${esc(b.company)}">Re-run this account</button></div>` : '';
   return `<tr class="detail"><td colspan="5"><div class="detailbox">
-    ${legacy}${entry}${contactsHtml(b)}${t1}
+    ${legacy}${scoreChips(b)}${entry}${contactsHtml(b)}${evidenceHtml(b)}
+    <div class="drafthead">The draft — written from the evidence above</div>${t1}
     ${touchBlock('Touch 2 — Bump (day 3)', b.touch2, 'c2-'+b.slug)}
     ${touchBlock('Touch 3 — LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug)}
     <div class="briefmd">${mdToHtml(b.markdown)}</div>
@@ -399,12 +465,14 @@ function render(){
   $('acctcount').textContent = accts.length ? `${accts.length} accounts loaded` : '';
   $('batchbar').hidden = !accts.length;
   $('acctpicker').innerHTML = accts.length ? `<div class="acctlist">` + accts.map((a,i) => `
-    <label class="acct"><input type="checkbox" data-i="${i}" ${selected.has(i)?'checked':''}>
+    <label class="acct${a.suppressed?' sup':''}" ${a.suppressed?`title="${esc(a.suppress_reason)}"`:''}>
+      <input type="checkbox" data-i="${i}" ${selected.has(i)?'checked':''} ${a.suppressed?'disabled':''}>
       <span class="nm">${esc(a.company)}</span>
       <span class="meta">${esc(a.domain||'')}</span>
       ${a.tier?`<span class="chip ${TIER_CLASS[a.tier]}">${a.tier}</span>`:'<span class="badge">no brief</span>'}
       ${a.has_brief&&!a.fresh?`<span class="badge">${a.age_days}d stale</span>`:''}
       ${a.fresh?`<span class="badge">fresh</span>`:''}
+      ${a.suppressed?'<span class="badge sup">⛔ do not contact</span>':''}
       ${a.closed_lost?'<span class="badge cl">closed-lost</span>':''}
       ${a.usage?'<span class="badge u">usage</span>':''}
       <span class="sp"></span></label>`).join('') + `</div>` : '';
@@ -572,10 +640,10 @@ $('acctpicker').addEventListener('change', e => {
   render();
 });
 $('sel-unbriefed').addEventListener('click', () => {
-  selected = new Set(STATE.accounts.map((a,i)=>[a,i]).filter(([a])=>!a.has_brief).map(([,i])=>i)); render();
+  selected = new Set(STATE.accounts.map((a,i)=>[a,i]).filter(([a])=>!a.has_brief&&!a.suppressed).map(([,i])=>i)); render();
 });
 $('sel-stale').addEventListener('click', () => {
-  selected = new Set(STATE.accounts.map((a,i)=>[a,i]).filter(([a])=>a.has_brief&&!a.fresh).map(([,i])=>i)); render();
+  selected = new Set(STATE.accounts.map((a,i)=>[a,i]).filter(([a])=>a.has_brief&&!a.fresh&&!a.suppressed).map(([,i])=>i)); render();
 });
 $('sel-none').addEventListener('click', () => { selected = new Set(); render(); });
 $('rows').addEventListener('click', async e => {
