@@ -384,6 +384,11 @@ def app_state():
         a["suppress_reason"] = sup.get("reason", "") if sup else ""
         a["usage"] = slug in usage
 
+    for b in briefs:
+        sup = dnc.get((b.get("domain") or "").lower()) or dnc.get(normalize_company(b["company"]))
+        b["suppressed"] = bool(sup)
+        b["suppress_reason"] = sup.get("reason", "") if sup else ""
+
     counts = {t: sum(1 for b in briefs if b["tier"] == t) for t in ("🔥", "🟡", "⚪", "—")}
     return {
         "briefs": briefs,

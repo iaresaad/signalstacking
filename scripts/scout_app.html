@@ -4,49 +4,106 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Signal Scout</title>
 <style>
+  /* Palette follows trumpet's brand: violet primary, deep navy ink, lavender
+     ground, coral for urgency. Tier colours stay semantically distinct —
+     coral = act now, amber = warming, violet-grey = monitor. */
   :root{
-    --bg:#faf9f5; --surface:#ffffff; --ink:#1a1915; --ink-2:#5d5a51; --ink-3:#8a8678;
-    --line:#e8e5dc; --accent:#c96442; --hot-bg:#fbeee8; --hot-ink:#a4441f;
-    --warm-bg:#faf3e0; --warm-ink:#8a6116; --mon-bg:#f0efea; --mon-ink:#6b6858;
-    --chip:#f0efea; --hover:#f5f4ee; --ok:#3a7d44;
+    --bg:#f7f5ff; --surface:#ffffff; --ink:#171043; --ink-2:#5b5480; --ink-3:#8b85ab;
+    --line:#e8e3f8; --accent:#6c3ff0; --accent-2:#9a6bff;
+    --hot-bg:#ffe9e2; --hot-ink:#d33c11;
+    --warm-bg:#fff3d8; --warm-ink:#9a6500;
+    --mon-bg:#eeebfc; --mon-ink:#645c92;
+    --chip:#f2effd; --hover:#f7f5ff; --ok:#0e9b6c;
+    --shadow-sm:0 1px 2px rgba(23,16,67,.05);
+    --shadow:0 1px 2px rgba(23,16,67,.04), 0 10px 28px rgba(23,16,67,.07);
+    --glow:0 6px 18px rgba(108,63,240,.28);
   }
   @media (prefers-color-scheme: dark){ :root{
-    --bg:#262624; --surface:#30302e; --ink:#f5f4ee; --ink-2:#b8b5a9; --ink-3:#8a8678;
-    --line:#3e3d3a; --accent:#e07b53; --hot-bg:#4a2c1e; --hot-ink:#f0a480;
-    --warm-bg:#453a1c; --warm-ink:#e5c66e; --mon-bg:#3a3936; --mon-ink:#b8b5a9;
-    --chip:#3a3936; --hover:#383734; --ok:#7dc287;
+    --bg:#100c28; --surface:#181334; --ink:#f3f0ff; --ink-2:#b3abd9; --ink-3:#847cad;
+    --line:#2b2453; --accent:#9a6bff; --accent-2:#c4a6ff;
+    --hot-bg:#45211a; --hot-ink:#ff9270;
+    --warm-bg:#3f3317; --warm-ink:#f2c469;
+    --mon-bg:#251f49; --mon-ink:#b3abd9;
+    --chip:#251f49; --hover:#1f1943; --ok:#3fdc9c;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.35);
+    --glow:0 6px 18px rgba(154,107,255,.32);
   }}
   *{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  body{margin:0;color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    background-image:radial-gradient(1100px 420px at 50% -180px, var(--accent-2) 0%, transparent 70%);
+    background-repeat:no-repeat}
+  @media (prefers-color-scheme: light){
+    body{background-image:radial-gradient(1100px 420px at 50% -200px, #d9caff 0%, transparent 72%)}}
+  *{-webkit-font-smoothing:antialiased}
   .wrap{max-width:1200px;margin:0 auto;padding:24px 20px 80px}
+  /* the band supplies the colour at the top, so the body wash would double it */
+  body{background-image:none}
+  .hero{display:block;position:relative;margin:-24px -20px 4px;padding:34px 20px 30px;overflow:hidden;
+    background:linear-gradient(135deg,#5b2fe0 0%,#7c4dff 45%,#a985ff 100%);
+    border-radius:0 0 26px 26px;box-shadow:0 12px 34px rgba(63,30,150,.28)}
+  .hero::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(620px 200px at 88% -40%, rgba(255,255,255,.30), transparent 65%)}
+  .heroinner{position:relative;max-width:1160px;margin:0 auto;padding:0 4px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;
+    background:rgba(255,255,255,.18);color:#fff;font-size:14px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+  .herobar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
   header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-  header h1{font-size:22px;margin:0;letter-spacing:-.01em}
+  .hero h1{font-size:32px;margin:0;letter-spacing:-.032em;font-weight:800;color:#fff}
+  .hero p{margin:8px 0 0;color:rgba(255,255,255,.86);font-size:15px;max-width:62ch}
+  /* on the violet band the chips need their own light-on-dark treatment */
+  .hero .pill{background:rgba(255,255,255,.20);color:#fff}
+  .hero .pill.running{background:rgba(255,214,120,.30);color:#fff}
+  .hero .pill.done{background:rgba(120,255,205,.26);color:#fff}
+  .hero .pill.failed{background:rgba(255,140,110,.32);color:#fff}
+  .hero #lanes{color:rgba(255,255,255,.9)}
+  .hero #lanes .dot{background:#7bffc8}
+  .hero #lanes.bad{color:#ffd9cd}
+  .hero #lanes.bad .dot{background:#ff8f6b}
+  header h1{font-size:24px;margin:0;letter-spacing:-.025em;font-weight:800}
   header p{margin:0;color:var(--ink-3);font-size:13px;flex:1}
   .pill{border-radius:999px;padding:3px 12px;font-size:12px;font-weight:600;background:var(--chip);color:var(--ink-2)}
   .pill.running{background:var(--warm-bg);color:var(--warm-ink)}
   .pill.done{background:var(--mon-bg);color:var(--ok)}
   .pill.failed{background:var(--hot-bg);color:var(--hot-ink)}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:16px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:18px 20px;margin-top:16px;box-shadow:var(--shadow)}
   .card h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
   .rowflex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  input[type=text],input[type=search]{flex:1;min-width:220px;background:var(--bg);border:1px solid var(--line);
-    border-radius:8px;padding:9px 12px;font:inherit;color:var(--ink)}
-  input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  input[type=text],input[type=search]{flex:1;min-width:220px;background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:11px 16px;font:inherit;color:var(--ink);
+    transition:border-color .12s ease, box-shadow .12s ease}
+  input[type=text]:focus,input[type=search]:focus{outline:0;border-color:var(--accent);
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent)}
   textarea{width:100%;min-height:180px;background:var(--bg);border:1px solid var(--line);border-radius:8px;
     padding:10px 12px;font:13px/1.5 ui-monospace,Menlo,monospace;color:var(--ink)}
-  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 18px;
-    font:600 14px/1 inherit;cursor:pointer}
-  button:hover{filter:brightness(1.07)}
+  button{background:var(--accent);color:#fff;border:0;border-radius:999px;padding:10px 20px;
+    font:600 14px/1 inherit;cursor:pointer;box-shadow:var(--glow);
+    transition:transform .12s ease, box-shadow .12s ease, filter .12s ease}
+  button:hover{filter:brightness(1.06);transform:translateY(-1px);
+    box-shadow:0 10px 24px rgba(108,63,240,.34)}
+  button:active{transform:translateY(0)}
+  button:disabled{box-shadow:none;transform:none}
+  button:focus-visible{outline:3px solid var(--accent-2);outline-offset:2px}
   button.ghost{background:var(--chip);color:var(--ink-2);border:1px solid var(--line)}
   button.ghost:hover{color:var(--ink)}
   button.small{padding:5px 12px;font-size:12px}
   button:disabled{opacity:.5;cursor:default}
-  .drop{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:16px;text-align:center;
+    transition:border-color .12s ease, background .12s ease, color .12s ease;
     color:var(--ink-3);font-size:13px;cursor:pointer}
-  .drop.over{border-color:var(--accent);color:var(--accent)}
+  .drop:hover{border-color:var(--accent-2);background:var(--hover)}
+  .drop.over{border-color:var(--accent);color:var(--accent);background:var(--hover)}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0 0}
-  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;cursor:pointer}
+  .tile{transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;
+    cursor:pointer;box-shadow:var(--shadow-sm)}
+  .tile:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--accent-2)}
+  .tile .n{font-weight:800;letter-spacing:-.03em}
   .tile.active{outline:2px solid var(--accent);outline-offset:-1px}
   .tile .n{font-size:26px;font-weight:650;letter-spacing:-.02em}
   .tile .l{font-size:12px;color:var(--ink-2);margin-top:2px}
@@ -60,11 +117,13 @@
   td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
   tr.row{cursor:pointer} tr.row:hover,tr.row.open{background:var(--hover)}
   td.co{font-weight:600;white-space:nowrap}
-  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 11px;
     font-size:12px;font-weight:600;white-space:nowrap}
   .chip.hot{background:var(--hot-bg);color:var(--hot-ink)}
   .chip.warm{background:var(--warm-bg);color:var(--warm-ink)}
   .chip.mon,.chip.unt{background:var(--mon-bg);color:var(--mon-ink)}
+  .chip.dnc{background:var(--hot-bg);color:var(--hot-ink);font-weight:700}
+  button.copy[disabled]{opacity:.5;cursor:not-allowed}
   .why{color:var(--ink-2);max-width:460px}
   .flag,.badge{display:inline-block;background:var(--chip);color:var(--ink-2);border-radius:6px;
     padding:1px 7px;font-size:11px;margin:2px 4px 0 0;white-space:nowrap}
@@ -73,9 +132,11 @@
   .switch{font-size:12px;color:var(--hot-ink);font-weight:600}
   tr.detail td{background:var(--bg);padding:0}
   .detailbox{padding:18px 20px;display:grid;gap:14px}
-  .entrybox{background:var(--hot-bg);color:var(--hot-ink);border-radius:10px;padding:12px 16px;font-size:13px}
+  .entrybox{background:linear-gradient(135deg, var(--hot-bg), var(--warm-bg));
+    color:var(--hot-ink);border-radius:14px;padding:14px 18px;font-size:13px;
+    border:1px solid color-mix(in srgb, var(--hot-ink) 18%, transparent)}
   .entrybox b{display:block;margin-bottom:4px}
-  .contacts{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .contacts{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
   .contacts .chead{display:flex;align-items:center;gap:10px;padding:9px 14px;
     background:var(--chip);font-weight:600;font-size:13px}
   .contacts .chead .grow{flex:1}
@@ -100,7 +161,7 @@
   .badge.sup{background:var(--hot-bg);color:var(--hot-ink);font-weight:600}
   .lanewarn{background:var(--hot-bg);color:var(--hot-ink);border-radius:10px;
     padding:10px 14px;font-size:13px;margin:10px 0}
-  .ev{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .ev{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
   .ev .evhead{display:flex;align-items:center;gap:10px;padding:9px 14px;
     background:var(--chip);font-weight:600;font-size:13px}
   .ev .evhead .grow{flex:1}
@@ -120,14 +181,18 @@
   .drafthead{font-weight:600;font-size:13px;margin:2px 0 -4px}
   .scorechips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   .tabs{display:flex;gap:6px;flex-wrap:wrap}
-  .tabs button{background:var(--chip);color:var(--ink-2);border:1px solid var(--line);font-size:12px;padding:6px 12px}
+  .tabs button{background:var(--chip);color:var(--ink-2);border:1px solid var(--line);font-size:12px;
+    padding:7px 14px;box-shadow:none}
+  .tabs button:hover{box-shadow:none;transform:none;color:var(--accent);border-color:var(--accent-2)}
+  .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .touch{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
   .touch h4{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px}
   .touch pre{margin:0;white-space:pre-wrap;font:13px/1.55 inherit;color:var(--ink-2)}
-  button.copy{background:var(--chip);border:1px solid var(--line);color:var(--ink-2);border-radius:7px;
+  button.copy{background:var(--chip);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;
+    box-shadow:none;
     padding:4px 12px;font:600 12px/1 inherit}
-  button.copy:hover{color:var(--ink)} button.copy.ok{color:var(--accent);border-color:var(--accent)}
+  button.copy:hover{color:var(--accent);border-color:var(--accent);box-shadow:none;transform:none} button.copy.ok{color:var(--accent);border-color:var(--accent)}
   button.enrich,button.rerun{font-size:12px;padding:5px 12px;border-radius:7px}
   button.rerun{margin-left:8px;background:var(--chip);color:var(--ink-2);border:1px solid var(--line)}
   button.rerun:hover{color:var(--ink)}
@@ -162,11 +227,18 @@
     border-radius:10px;padding:12px 18px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:11}
 </style></head><body>
 <div class="wrap">
-  <header>
-    <h1>Signal Scout</h1>
-    <p>who's in-market right now, and who to email first — all local</p>
-    <span id="lanes" title="Exa search lanes — verified with a real search"></span>
-    <span class="pill" id="runpill">idle</span>
+  <header class="hero">
+    <div class="heroinner">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">◆</span>
+        <h1>Signal Scout</h1>
+      </div>
+      <p>Who's in-market right now — and who to email first.</p>
+      <div class="herobar">
+        <span id="lanes" title="Exa search lanes — verified with a real search"></span>
+        <span class="pill" id="runpill">idle</span>
+      </div>
+    </div>
   </header>
 
   <!-- ── Run panel ─────────────────────────────────────────────── -->
@@ -308,10 +380,12 @@ function visible(){
   return rows;
 }
 
-function touchBlock(label, text, id){
+function touchBlock(label, text, id, blocked){
   if (!text) return '';
-  return `<div class="touch"><h4>${esc(label)}
-    <button class="copy" data-copy="${id}">Copy</button></h4><pre id="${id}">${esc(text)}</pre></div>`;
+  const btn = blocked
+    ? '<button class="copy" disabled title="suppressed — do not contact">Copy disabled</button>'
+    : `<button class="copy" data-copy="${id}">Copy</button>`;
+  return `<div class="touch"><h4>${esc(label)}${btn}</h4><pre id="${id}">${esc(text)}</pre></div>`;
 }
 
 function contactRow(c){
@@ -407,19 +481,23 @@ function detailHtml(b){
     const v = b.touch1Variants[Math.min(openVariant, b.touch1Variants.length-1)];
     t1 = `<div class="tabs">${b.touch1Variants.map((x,i) =>
         `<button data-var="${i}" class="${i===Math.min(openVariant,b.touch1Variants.length-1)?'on':''}">${esc(x.label.replace(/^Touch 1\s*[—-]\s*/,''))}</button>`).join('')}</div>`
-      + touchBlock(v.label, v.body, 'c1-'+b.slug);
+      + touchBlock(v.label, v.body, 'c1-'+b.slug, b.suppressed);
   } else {
-    t1 = touchBlock('Touch 1 — Email (day 0)', b.touch1, 'c1-'+b.slug);
+    t1 = touchBlock('Touch 1 — Email (day 0)', b.touch1, 'c1-'+b.slug, b.suppressed);
   }
+  const dnc = b.suppressed
+    ? `<div class="lanewarn"><b>⛔ Do not contact — this is an existing customer.</b>
+       ${esc(b.suppress_reason)}. The sequence below is kept for reference only;
+       copy is disabled so it cannot be sent by accident.</div>` : '';
   const legacy = b.legacy
     ? `<div class="legacybox"><b>Legacy brief — never scored.</b> It predates tier
        scoring and carries no Fit/Timing data, so it is not ranked. Re-run it to score.
        <button class="rerun" data-rerun="${esc(b.company)}">Re-run this account</button></div>` : '';
   return `<tr class="detail"><td colspan="5"><div class="detailbox">
-    ${legacy}${scoreChips(b)}${entry}${contactsHtml(b)}${evidenceHtml(b)}
+    ${dnc}${legacy}${scoreChips(b)}${entry}${contactsHtml(b)}${evidenceHtml(b)}
     <div class="drafthead">The draft — written from the evidence above</div>${t1}
-    ${touchBlock('Touch 2 — Bump (day 3)', b.touch2, 'c2-'+b.slug)}
-    ${touchBlock('Touch 3 — LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug)}
+    ${touchBlock('Touch 2 — Bump (day 3)', b.touch2, 'c2-'+b.slug, b.suppressed)}
+    ${touchBlock('Touch 3 — LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug, b.suppressed)}
     <div class="briefmd">${mdToHtml(b.markdown)}</div>
     <div class="meta">source: research/${esc(b.file)}${b.email ? ' · email on file: '+esc(b.email) : ''}</div>
   </div></td></tr>`;
@@ -491,7 +569,9 @@ function render(){
       const open = b.slug === openSlug;
       return `<tr class="row ${open?'open':''} ${knownBriefs.has(b.slug)?'newbrief':''}" data-slug="${b.slug}">
         <td class="co">${esc(b.company)}${sw}</td>
-        <td><span class="chip ${TIER_CLASS[b.tier]}">${b.tier==='—'?'':b.tier+' '}${esc(b.tierLabel)}</span>${cl}${flags?'<div>'+flags+'</div>':''}</td>
+        <td>${b.suppressed
+              ? `<span class="chip dnc" title="${esc(b.suppress_reason)}">⛔ do not contact</span>`
+              : `<span class="chip ${TIER_CLASS[b.tier]}">${b.tier==='—'?'':b.tier+' '}${esc(b.tierLabel)}</span>`}${cl}${flags?'<div>'+flags+'</div>':''}</td>
         <td class="why">${esc(b.whyNow)}</td>
         <td>${esc(b.entry||b.contact)||'<span class="meta">—</span>'}</td>
         <td class="meta">${esc(b.researched)||'—'}</td>
