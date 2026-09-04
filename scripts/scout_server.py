@@ -418,9 +418,9 @@ def app_state():
     today = date.today()
     briefs = attach_enrichment(load_briefs(today, load_email_map()))
     by_slug = {b["slug"]: b for b in briefs}
-    # Slug alone is too strict a join: an accounts CSV says "Docusign, Inc."
-    # while the brief file is named differently, so the row would read "no brief"
-    # inviting a paid re-run of research that already exists.
+    # Slug alone is too strict a join: an accounts CSV may carry a legal suffix
+    # ("Acme Co, Inc.") while the brief file is named without it, so the row
+    # would read "no brief", inviting a paid re-run of research that exists.
     by_norm, by_dom = {}, {}
     for b in briefs:
         by_norm.setdefault(normalize_company(b["company"]), b)

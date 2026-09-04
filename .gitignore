@@ -37,3 +37,6 @@ research/
 
 # Apollo enrichment cache: real emails and mobile numbers for real people
 accounts/apollo-cache.json
+
+# Private: the leak-check term list names real customers
+.leak-terms
