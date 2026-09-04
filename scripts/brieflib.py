@@ -294,6 +294,8 @@ EVIDENCE_SECTIONS = [
     ("hiring", ("Hiring & Growth Triggers", "Hiring and Growth Triggers", "Hiring")),
     ("stack", ("Tech Stack Detected", "Tech Stack")),
     ("filing", ("Financial Filings & Earnings", "Financial Filings")),
+    ("exec", ("Exec, C-Suite & Board Voice", "Exec Voice & Milestones", "Exec Voice")),
+    ("market", ("Market & Industry Opportunity", "Market & Industry Analysis")),
     ("closed-lost", ("Closed-Lost History",)),
 ]
 LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)]+)\)")
@@ -381,6 +383,8 @@ def parse_brief(path, today, email_map):
     committee = section(md, "Buying Committee")
     entry_point = section(md, "Best Point of Entry")
     filings = section(md, "Financial Filings & Earnings", "Financial Filings")
+    exec_voice = section(md, "Exec, C-Suite & Board Voice", "Exec Voice & Milestones")
+    market = section(md, "Market & Industry Opportunity", "Market & Industry Analysis")
     closed_lost = section(md, "Closed-Lost History")
 
     # Contact: Best Point of Entry first, then committee/people buckets, then legacy.
@@ -399,7 +403,8 @@ def parse_brief(path, today, email_map):
                 contact = f"{m.group(1).strip()}, {m.group(2).strip()}"
     contact = re.sub(r"\s*\[.*?\]\(.*?\)", "", contact).strip()
 
-    switch = "yes" if re.search(r"SWITCH PLAY", md, re.I) else ""
+    # "not a switch play" / "no switch play" must not read as a switch play
+    switch = "yes" if re.search(r"(?<!not a )(?<!no )(?<!not )SWITCH[ _]PLAY", md, re.I) else ""
     m = re.search(r"suppressed-until-(\S+)|Re-check:\s*(\S+)", md, re.I)
     recheck = (m.group(1) or m.group(2)) if m else ""
 
@@ -446,6 +451,8 @@ def parse_brief(path, today, email_map):
         "entryPoint": entry_point,
         "committee": committee,
         "filings": filings,
+        "execVoice": exec_voice,
+        "market": market,
         "closedLost": closed_lost,
         "contacts": brief_contacts(md, entry_meta),
         "evidence": parse_evidence(md),

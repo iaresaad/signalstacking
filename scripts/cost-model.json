@@ -1,23 +1,19 @@
 {
   "_comment": "Tunable cost model for Signal Stacking run estimation. All token figures are per-unit estimates of TOTAL billed tokens (input + output split out so a $ figure can be computed). Consumed by scripts/costlib.py. Edit the numbers here, never in the code.",
-
   "triage": {
     "_comment": "One prospect-triage subagent (Haiku model, .claude/agents/prospect-triage.md). Budget-capped at max 3 Exa searches. Input: agent prompt + seller-context (~4-5k) + up to 3 search results (~3-4k each = ~12k) + scoring script output and loop re-reads => ~20k in. Output: reasoning + tool calls + the compact TRIAGE block => ~1.5k out.",
     "input_tokens": 20000,
     "output_tokens": 1500
   },
-
   "deep_dive": {
-    "_comment": "One prospect-researcher subagent (main model, .claude/agents/prospect-researcher.md). Dominated by search-result ingestion: 4 lenses x 3-4 searches = ~12-15 searches x ~6k result tokens (~90k) + 2-3 page fetches (homepage, careers) x ~12k (~30k) + agent prompt, seller-context, and accumulated-context re-reads (~40k) => ~160k in. Output: ~1.5-2k-word brief (~2.5-3k tokens) + tool-call args, scoring, and summary block => ~12k out.",
-    "input_tokens": 160000,
-    "output_tokens": 12000
+    "_comment": "One prospect-researcher subagent (main model, .claude/agents/prospect-researcher.md). Dominated by search-result ingestion: 6 lenses x 3-4 searches = ~20-22 searches x ~6k result tokens (~130k) + page fetches — homepage, careers, and for public companies the 10-K/10-Q/proxy, which are large — ~4 x ~14k (~56k) + agent prompt, seller-context, and accumulated-context re-reads (~45k) => ~225k in. Output: the brief now carries filings-with-opportunity, exec/C-suite/board voice and market-opportunity sections (~3.5k tokens) + tool-call args, scoring and the summary block => ~15k out. Private companies land lower (no filings lens); this is the public-co case.",
+    "input_tokens": 225000,
+    "output_tokens": 15000
   },
-
   "refresh_multiplier": {
     "_comment": "A `refresh` run passes the old brief stamp so the researcher searches only the delta ('signals since <date>') instead of redoing all four lenses => ~60% of a full deep dive (fewer searches, but the brief is still rewritten in full).",
     "value": 0.6
   },
-
   "orchestrator": {
     "_comment": "The /signal-stacking orchestrator itself (.claude/commands/signal-stacking.md). Base: command file + seller-context read + Exa lane discovery + task tracking + dashboard build + roll-up (~15k in / 3k out). Per account: CSV row parse, prompt construction, compact summary-block ingestion, index row (~0.9k in / 0.3k out each). Billed at main-model rates.",
     "base_input_tokens": 15000,
@@ -25,20 +21,23 @@
     "per_account_input_tokens": 900,
     "per_account_output_tokens": 300
   },
-
   "survival_rate_default": {
     "_comment": "Default fraction of triaged accounts whose verdict is DEEP_DIVE (rest PARK/SKIP/CLARIFY). The triage pass is designed to 'kill the dead half of the list', so ~0.5 for a typical raw account list. Callers can override per-run.",
     "value": 0.5
   },
-
   "fresh_skip": {
     "_comment": "Accounts with a brief fresher than 14 days are skipped free on non-refresh runs (only the tiny per-account orchestrator overhead applies). On a refresh run they are re-searched at the refresh multiplier.",
     "freshness_days": 14
   },
-
   "pricing_usd_per_mtok": {
     "_comment": "REFERENCE ONLY: Claude API list prices per million tokens (as of Aug 2026). Triage runs on Haiku (Claude Haiku 4.5: $1 in / $5 out). 'main' = the session's main model for the orchestrator + deep dives; Claude Opus 5 list price ($5 in / $25 out) is used as the reference. Subscription (Claude Code plan) users are NOT billed these amounts - treat the $ figure as a relative-cost yardstick only. If the repo runs on Sonnet-class, swap main to 3.00/15.00.",
-    "haiku": { "input": 1.0, "output": 5.0 },
-    "main": { "input": 5.0, "output": 25.0 }
+    "haiku": {
+      "input": 1.0,
+      "output": 5.0
+    },
+    "main": {
+      "input": 5.0,
+      "output": 25.0
+    }
   }
 }

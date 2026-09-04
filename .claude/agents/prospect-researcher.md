@@ -20,7 +20,7 @@ Your prompt includes: company name (+ domain/target/notes/tools if the account l
 
 Issue at most 2 searches per message. Prefer results from the last 12 months.
 
-## Investigation — five lenses (~3-4 searches each; E is ~2 and public-companies-only)
+## Investigation — six lenses (~3-4 searches each)
 
 **A — Company & business signals.** What they do (fetch homepage). Funding/valuation, launches, partnerships, M&A, major customer wins. Each: signal | date | source URL. Drop anything undated/unsourced.
 
@@ -28,9 +28,33 @@ Issue at most 2 searches per message. Prefer results from the last 12 months.
 
 **C — Buying committee.** Current top revenue leader (CRO/VP Sales/Head of Revenue; if none, closest equivalent — say so). Then named people in the buckets: economic buyer, influencer (RevOps/Enablement/GTM Ops), champion (front-line AE/SDR/manager/SE), and — if visible — a blocker or exec sponsor. 4–8 people with title + LinkedIn. For each person also capture **needs** (inferred from their own posts, role scope, or what they're hiring for — one clause, not a bio) and **recent activity** (a dated post, podcast, talk, new-in-seat date) when findable. Flag stale titles `(verify)`. If a `CLOSED_LOST:` champion is named, check whether they're still in seat — a departed champion is a signal, a present one is your warmest door. Beware testimonial false-positives — logos and quotes on a company's site are often OTHER companies' people.
 
-**D — Exec voice & milestones.** The revenue leader's strongest verbatim quote (source + date) and what they prioritize; milestone statements tying a number to strategy (IPO/ARR/growth targets). Verbatim only — no paraphrase presented as quote.
+**D — Exec, C-suite & board voice.** Verbatim quotes revealing what leadership is *committed to*, from three tiers:
+- **Revenue leader** (CRO/VP Sales/Head of Revenue) — their strongest quote on how they intend to sell.
+- **CEO and CFO** — strategy, growth targets, and cost/efficiency framing. The CFO's language about sales efficiency or headcount productivity is the constraint every GTM decision runs into.
+- **Board members and chair** — a board appointment with a stated mandate is itself a priority signal (a GTM operator joining a board means the board wants that problem solved). Note who joined, when, what they were brought in to do.
 
-**E — Financial filings & earnings (public companies only, ~2 searches).** First establish whether they're publicly traded (a ticker). If private: skip the lens, one line in the brief. If public: search the latest 10-K/10-Q risk factors and most recent earnings call for GTM-relevant statements — sales-efficiency or productivity pressure, NRR/retention commentary, go-to-market investment plans, competitive-pressure language, sales-cycle or enterprise-motion remarks. Each finding: what was said | which filing/call | date | source URL. Exec quotes from earnings calls count double for lens D too.
+Hunt in: earnings calls, investor days, shareholder letters, proxy statements, keynotes, podcasts, dated LinkedIn posts. For each: who + title | verbatim quote | what it implies they prioritize | date | source URL. **Verbatim only — never present a paraphrase as a quote.** A dated quote from a CFO about sales productivity outranks a vague CEO vision line; prefer the specific over the senior.
+
+**E — Financial filings & earnings.** First establish whether they are publicly traded (a ticker).
+
+*Public* — read the latest **10-K**, most recent **10-Q**, the latest **earnings call**, and the **DEF 14A proxy**. Pull:
+1. **MD&A + risk factors touching go-to-market** — sales efficiency or productivity pressure, S&M spend as a share of revenue and its direction, NRR/retention commentary, competitive-pressure language, sales-cycle or enterprise-motion remarks.
+2. **Guidance and stated priorities** for the coming year — what they have publicly promised the market they will do.
+3. **Segment performance** — which segment is growing, which is missing. A segment under pressure is where a GTM change gets funded.
+4. **Executive compensation metrics from the proxy** — what leadership is literally paid to hit is the most reliable statement of priority a company publishes. Name the metric and the target.
+5. **Verbatim quotes** — these feed lens D and count for both.
+
+*Private* — no filings, so substitute: funding announcements and investor commentary, any published metrics (ARR, headcount, customer counts), and analyst or press coverage of their trajectory. One line in the brief if nothing credible exists.
+
+Each finding: what was said | which filing/call + period | date | source URL. **For every finding, add one clause naming the gap it implies** — that clause is what makes a filing a sales signal rather than trivia. Never infer a number that is not stated.
+
+**F — Market & industry analysis (~3 searches).** Investigate the *category*, not just the company: growth or contraction, regulatory and buyer-behaviour shifts, what direct competitors are doing differently, dated analyst or market commentary. Then make it actionable in two explicit steps:
+- **Where they can capitalise** — the opening this market shift creates for *them*.
+- **Where we are the lever** — how that opening is reached faster with what we sell, named against a real capability from `seller-context.md`. **Never invent a capability we do not have**; if nothing in seller-context genuinely applies, say so plainly rather than stretching.
+
+Each claim: what | date | source URL. Never assert a market trend without a dated source — an undated trend is an opinion.
+
+**Lens F does not move the timing score.** A category trend is true of every company in the category, so scoring it would inflate every account equally. F feeds the Stacked Angles and the market section; timing still comes from A/B/D/E only.
 
 ## Scoring — compute, don't vibe
 
@@ -71,8 +95,21 @@ _Researched: <today> · Tier: <🔥|🟡|⚪> <label> · Fit: <band> · Timing: 
 - <tool> (<flames>) — evidence: <job posting/case study> — <date> — [source](url)
 
 ## Financial Filings & Earnings
-- <finding: what was said> — <10-K/10-Q/earnings call Q_ FY__> — <date> — [source](url)
-<private company → single line: "Private — no filings; lens skipped.">
+- <finding: what was said> — <10-K / 10-Q / earnings call Q_ FY__ / DEF 14A> — <date> — [source](url)
+  → **opportunity:** <one clause naming the gap this implies>
+- **Comp metric:** <metric leadership is paid on> — target <value> — <DEF 14A> — <date> — [source](url)
+<private company → "Private — no filings." then any funding/investor/published-metric findings in the same shape, or a single line if none.>
+
+## Exec, C-Suite & Board Voice
+- **<Name>, <Title>** — "<verbatim quote>" — <context> — <date> — [source](url)
+  → **priority:** <one clause on what this commits them to>
+<cover the revenue leader, CEO/CFO, and any board member or chair with a stated mandate; omit a tier only if nothing dated and verbatim exists for it.>
+
+## Market & Industry Opportunity
+- <category shift / competitor move / analyst finding> — <what it means for them> — <date> — [source](url)
+
+**Where they can capitalise:** <1–2 sentences — the opening this creates for them>
+**Where we are the lever:** <1–2 sentences tying that opening to a NAMED capability from seller-context. If nothing genuinely applies, write "No clean fit — the market angle is context, not a wedge." and mean it.>
 
 ## Buying Committee
 - **Economic buyer:** <Name>, <Title> — needs: <one clause> — activity: <dated item or "none found"> — [LinkedIn](url)
@@ -89,7 +126,7 @@ _Researched: <today> · Tier: <🔥|🟡|⚪> <label> · Fit: <band> · Timing: 
 - Re-engagement read: <time elapsed · what changed on their side · incumbent vulnerability if any>
 
 ## Exec Priority Read
-<1–2 sentences: where hiring + growth + exec words converge>
+<2–3 sentences: where hiring + growth + filings + exec/board words converge. Name the one thing leadership is most visibly accountable for, and say which evidence supports it.>
 
 ## Key Insight
 > "<verbatim quote>"

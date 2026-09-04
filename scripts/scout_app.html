@@ -174,6 +174,13 @@
   .kind.signal{background:var(--hot-bg);color:var(--hot-ink)}
   .kind.hiring{background:var(--warm-bg);color:var(--warm-ink)}
   .kind.stack{background:var(--mon-bg);color:var(--mon-ink)}
+  .kind.filing{background:#e6f0ff;color:#1d4ed8}
+  .kind.exec{background:#ede9fe;color:#5b21b6}
+  .kind.market{background:#e7f8f0;color:#0e7a56}
+  @media (prefers-color-scheme: dark){
+    .kind.filing{background:#16264d;color:#93b4ff}
+    .kind.exec{background:#2a1f52;color:#c4a6ff}
+    .kind.market{background:#12362a;color:#6ee7b7}}
   .src{display:inline-block;margin:3px 4px 0 0;border:1px solid var(--line);border-radius:999px;
     padding:1px 8px;font-size:11px;color:var(--ink-2);text-decoration:none}
   .src:hover{color:var(--accent);border-color:var(--accent)}
@@ -431,7 +438,8 @@ function contactsHtml(b){
 }
 
 const KIND_LABEL = {signal:'signal', hiring:'hiring', stack:'stack',
-                    filing:'filing', 'closed-lost':'closed-lost'};
+                    filing:'filing', exec:'exec voice', market:'market',
+                    'closed-lost':'closed-lost'};
 
 function evidenceHtml(b){
   const ev = b.evidence || [];
