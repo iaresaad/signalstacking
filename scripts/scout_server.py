@@ -42,6 +42,7 @@ from brieflib import (ACCOUNTS, FRESH_DAYS, RESEARCH, ROOT, is_hidden, load_brie
                       load_hidden, lookup_suppressed, normalize_company, slugify)
 
 RUNS = ROOT / "runs"
+SPEND = ROOT / "runs" / "spend.json"
 ACTIVE = RUNS / "ACTIVE"
 APP_HTML = Path(__file__).resolve().parent / "scout_app.html"
 USAGE_MD = ROOT / ".claude" / "signal-stacking" / "trumpet-usage-data.md"
@@ -300,6 +301,7 @@ def start_run(payload):
         )
         try:
             remember_accounts(companies)
+            record_spend(run_id, {**payload, "companies": companies}, estimate(payload))
         except Exception:
             pass  # never let bookkeeping kill a launched run
         ACTIVE.write_text(json.dumps({"id": run_id, "pid": proc.pid}))
@@ -464,6 +466,7 @@ def app_state():
         "usage_companies": sorted(usage),
         "run": run_status(),
         "apollo": apollo_status(),
+        "spend": spend_summary(),
         "lanes": lane_status(),
         "generated": today.isoformat(),
     }
@@ -628,6 +631,74 @@ def apollo_status(force=False):
             "phone_available": apollolib.phone_available(),
             "webhook": apollolib.webhook_url(),
             "cached_people": len(apollolib.load_cache())}
+
+
+def record_spend(run_id, payload, est):
+    """Append a launched run to the spend ledger.
+
+    Estimates only — the API does not report per-run token usage back here, so
+    this is a budget tracker, not a bill. Labelled as such everywhere it shows.
+    """
+    try:
+        try:
+            ledger = json.loads(SPEND.read_text())
+        except Exception:
+            ledger = []
+        ledger.append({
+            "id": run_id,
+            "at": datetime.now().isoformat(timespec="seconds"),
+            "companies": [c.get("company") or c.get("domain") or "" for c in
+                          (payload.get("companies") or [])][:50],
+            "n_accounts": len(payload.get("companies") or []),
+            "mode": est.get("mode", ""),
+            "refresh": bool(payload.get("refresh")),
+            "tokens": (est.get("tokens") or {}).get("expected", 0),
+            "usd": (est.get("usd") or {}).get("expected", 0),
+        })
+        tmp = SPEND.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(ledger[-500:], indent=1))
+        os.replace(tmp, SPEND)
+    except Exception:
+        pass  # never let accounting break a launch
+
+
+def spend_summary():
+    """Estimated spend over rolling windows, for the budget panel."""
+    try:
+        ledger = json.loads(SPEND.read_text())
+    except Exception:
+        ledger = []
+    now = datetime.now()
+    hidden = load_hidden()
+    def _clean(e):
+        e = dict(e)
+        e["companies"] = ["(hidden)" if is_hidden(hidden, c) else c
+                          for c in e.get("companies", [])]
+        return e
+    out = {"runs": len(ledger), "windows": {},
+           "recent": [_clean(e) for e in ledger[-8:][::-1]],
+           "note": "estimates at API list prices — a budget guide, not a bill"}
+    for label, days in (("today", 1), ("last7", 7), ("last30", 30), ("all", None)):
+        sel = []
+        for e in ledger:
+            if days is None:
+                sel.append(e); continue
+            try:
+                at = datetime.fromisoformat(e.get("at", ""))
+            except Exception:
+                continue
+            if label == "today":
+                if at.date() == now.date():
+                    sel.append(e)
+            elif (now - at).days < days:
+                sel.append(e)
+        out["windows"][label] = {
+            "runs": len(sel),
+            "accounts": sum(e.get("n_accounts", 0) for e in sel),
+            "tokens": sum(e.get("tokens", 0) for e in sel),
+            "usd": round(sum(e.get("usd", 0) for e in sel), 2),
+        }
+    return out
 
 
 def estimate(payload):
@@ -854,6 +925,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, closed_lost_state())
         elif path == "/api/lanes":
             self._send(200, lane_status(force="refresh" in self.path))
+        elif path == "/api/spend":
+            self._send(200, spend_summary())
         elif path == "/api/apollo/status":
             self._send(200, apollo_status(force="refresh" in self.path))
         elif path == "/api/usage-data":

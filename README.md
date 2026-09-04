@@ -164,6 +164,23 @@ they answer different questions ("are they the kind of company that buys?" vs
 once there are at least 8 scored accounts to rank against — below that a
 percentile is noise dressed as precision.
 
+## Knowing what a search costs — before you run it
+
+Token budget is shared and finite, so cost is shown at the moment the decision
+is made, not after. Select accounts and a live estimate appears under the batch
+bar — dollars, tokens, how many are **net-new** versus **stale**, and how many
+are already fresh and therefore **free**. It turns amber past $20. The confirm
+modal repeats the figure before launch.
+
+Underneath, `runs/spend.json` records every launched run, and the app shows
+estimated spend for today, the last 7 and 30 days, and all time. Hidden accounts
+appear there as `(hidden)`.
+
+These are **estimates at API list prices, not a bill** — the API does not report
+per-run usage back to the app, and subscription users are not billed these
+amounts. Treat it as a relative yardstick for spending a limited budget on the
+accounts that matter. Tunables live in `scripts/cost-model.json`.
+
 ## Hiding an account from the app entirely
 
 `accounts/hidden.csv` (`company,domain,reason`) removes an account from the UI,

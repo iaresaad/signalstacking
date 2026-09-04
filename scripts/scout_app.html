@@ -187,6 +187,15 @@
   .nosrc{font-size:11px;color:var(--warm-ink);background:var(--warm-bg);border-radius:999px;padding:1px 8px}
   .drafthead{font-weight:600;font-size:13px;margin:2px 0 -4px}
   .scorechips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #costbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;
+    background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:9px 14px;font-size:13px}
+  #costbar .amt{font-weight:800;font-size:15px;color:var(--ink)}
+  #costbar .free{color:var(--ok);font-weight:600}
+  #costbar .grow{flex:1}
+  #costbar.warn{background:var(--warm-bg);border-color:var(--warm-ink);color:var(--warm-ink)}
+  .budget{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);
+    margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .budget b{color:var(--ink);font-weight:700}
   #filterbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;
     font-size:13px;color:var(--ink-2)}
   #filterbar .fchip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);
@@ -277,6 +286,8 @@
       <label class="meta"><input type="checkbox" id="refresh"> refresh stale research</label>
       <button id="btn-run-batch" disabled>Run selected (0)</button>
     </div>
+    <div id="costbar" hidden></div>
+    <div class="budget" id="budget"></div>
 
     <details id="signals">
       <summary>Signal sources — closed-lost CRM data &amp; product usage</summary>
@@ -561,8 +572,55 @@ function renderLanes(){
   } else if (w){ w.hidden = true; }
 }
 
+// Cost has to be visible while you are choosing, not only after you click Run —
+// that is the moment the decision is actually made.
+let costTimer = null, lastCostKey = '';
+function refreshCost(){
+  const el = $('costbar'); if (!el) return;
+  const picked = [...selected].map(i => STATE.accounts[i]).filter(a => a && !a.suppressed);
+  if (!picked.length){ el.hidden = true; lastCostKey = ''; return; }
+  const key = picked.map(a => a.company).join('|') + ($('refresh').checked ? '|r' : '');
+  if (key === lastCostKey) return;
+  lastCostKey = key;
+  el.hidden = false;
+  el.innerHTML = 'estimating…';
+  clearTimeout(costTimer);
+  costTimer = setTimeout(async () => {
+    try{
+      const body = {mode:'batch', refresh: $('refresh').checked,
+        companies: picked.map(a => ({company:a.company, domain:a.domain}))};
+      const est = await (await fetch('/api/estimate', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})).json();
+      const c = est.counts || {};
+      const free = (c.fresh || 0) + (c.skipped_free || 0);
+      el.className = (est.usd && est.usd.expected >= 20) ? 'warn' : '';
+      el.innerHTML =
+        `<span class="amt">~$${(est.usd?.expected ?? 0).toFixed(2)}</span>`
+        + `<span>${Math.round((est.tokens?.expected ?? 0)/1000)}k tokens · `
+        + `${picked.length} account${picked.length===1?'':'s'}`
+        + (c.new ? ` · ${c.new} net-new` : '')
+        + (c.stale ? ` · ${c.stale} stale` : '')
+        + `</span>`
+        + (free ? `<span class="free">${free} already fresh — free</span>` : '')
+        + `<span class="grow"></span>`
+        + `<span class="meta">list-price estimate, not a bill</span>`;
+    }catch(e){ el.innerHTML = '<span class="meta">estimate unavailable</span>'; }
+  }, 250);
+}
+
+function renderBudget(){
+  const el = $('budget'); if (!el) return;
+  const s = STATE.spend; if (!s || !s.runs){ el.innerHTML = ''; return; }
+  const w = s.windows || {};
+  const f = k => `<span><b>$${(w[k]?.usd ?? 0).toFixed(2)}</b> ${k==='today'?'today':k==='last7'?'last 7 days':k==='last30'?'last 30 days':'all time'}`
+    + ` <span class="meta">(${w[k]?.runs ?? 0} run${(w[k]?.runs??0)===1?'':'s'}, ${w[k]?.accounts ?? 0} accounts)</span></span>`;
+  el.innerHTML = 'Estimated spend: ' + ['today','last7','last30','all'].map(f).join('') +
+    `<span class="meta">${esc(s.note||'')}</span>`;
+}
+
 function render(){
   renderLanes();
+  renderBudget();
   // run pill + card
   const r = STATE.run || {state:'idle'};
   const pill = $('runpill');
@@ -597,6 +655,7 @@ function render(){
       ${a.usage?'<span class="badge u">usage</span>':''}
       <span class="sp"></span></label>`).join('') + `</div>` : '';
   $('btn-run-batch').textContent = `Run selected (${selected.size})`;
+  refreshCost();
   $('btn-run-batch').disabled = !selected.size || r.state==='running';
   $('btn-run-oneoff').disabled = r.state==='running';
 
