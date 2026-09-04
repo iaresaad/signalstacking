@@ -539,6 +539,37 @@ def load_do_not_contact(path=None):
     return out
 
 
+def suppression_keys(company="", domain=""):
+    """Every key a company/domain pair could legitimately be indexed under.
+
+    A suppression row usually has a bare name ("Acme Co") while the thing being
+    checked can arrive as a domain ("acme-co.com", from a pasted URL). Those do
+    not normalize to the same string — `normalize_company` strips legal suffixes,
+    not TLDs — so both sides must generate the same candidate set or the match
+    silently misses and a live deal gets prospected.
+    """
+    keys = []
+    d = (domain or "").strip().lower()
+    if d:
+        keys.append(d)
+        keys.append(normalize_company(d.split(".")[0]))
+    c = (company or "").strip()
+    if c:
+        keys.append(normalize_company(c))
+        if re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", c, re.I):   # the name IS a domain
+            keys.append(c.lower())
+            keys.append(normalize_company(c.split(".")[0]))
+    return [k for k in dict.fromkeys(keys) if k]
+
+
+def lookup_suppressed(dnc, company="", domain=""):
+    """First matching do-not-contact row, or None."""
+    for k in suppression_keys(company, domain):
+        if k in dnc:
+            return dnc[k]
+    return None
+
+
 def load_closed_lost(path=None):
     """accounts/closed-lost.csv → {join_key: row}.
 

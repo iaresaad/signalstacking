@@ -39,7 +39,7 @@ import brieflib
 import costlib
 from brieflib import (ACCOUNTS, FRESH_DAYS, RESEARCH, ROOT, load_briefs,
                       load_closed_lost, load_do_not_contact, load_email_map,
-                      normalize_company, slugify)
+                      lookup_suppressed, normalize_company, slugify)
 
 RUNS = ROOT / "runs"
 ACTIVE = RUNS / "ACTIVE"
@@ -250,8 +250,7 @@ def start_run(payload):
         dnc = load_do_not_contact()
         blocked = []
         for c in companies:
-            hit = (dnc.get((c.get("domain") or "").lower())
-                   or dnc.get(normalize_company(c.get("company") or "")))
+            hit = lookup_suppressed(dnc, c.get("company") or "", c.get("domain") or "")
             if hit:
                 blocked.append({"company": c.get("company") or c.get("domain"),
                                 "matched": hit.get("company", ""),
@@ -429,13 +428,13 @@ def app_state():
         a["age_days"] = b["ageDays"] if b else None
         a["fresh"] = bool(b and b["ageDays"] is not None and b["ageDays"] < FRESH_DAYS)
         a["closed_lost"] = a["domain"] in cl or normalize_company(a["company"]) in cl
-        sup = dnc.get(a["domain"]) or dnc.get(normalize_company(a["company"]))
+        sup = lookup_suppressed(dnc, a["company"], a["domain"])
         a["suppressed"] = bool(sup)
         a["suppress_reason"] = sup.get("reason", "") if sup else ""
         a["usage"] = slug in usage
 
     for b in briefs:
-        sup = dnc.get((b.get("domain") or "").lower()) or dnc.get(normalize_company(b["company"]))
+        sup = lookup_suppressed(dnc, b["company"], b.get("domain", ""))
         b["suppressed"] = bool(sup)
         b["suppress_reason"] = sup.get("reason", "") if sup else ""
 
@@ -491,8 +490,7 @@ def enrich_brief(payload):
     # Same rule as /api/run: never build a contact list for someone we must not
     # contact. Enrichment also costs credits, so this is money as well as safety.
     dnc = load_do_not_contact()
-    hit = (dnc.get((b.get("domain") or "").lower())
-           or dnc.get(normalize_company(b["company"])))
+    hit = lookup_suppressed(dnc, b["company"], b.get("domain", ""))
     if hit and not payload.get("override_suppression"):
         return 409, {"error": "suppressed account — not enriching",
                      "matched": hit.get("company", ""),

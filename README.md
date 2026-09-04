@@ -167,14 +167,19 @@ percentile is noise dressed as precision.
 ## Suppression (do-not-contact)
 
 `accounts/do-not-contact.csv` (`company,domain,reason,until`) lists current
-customers, open opportunities and cooloffs. **The app enforces it**, not just the
+customers, open opportunities and cooloffs. Both halves matter: closed-won
+accounts you would recognise by name, and **open opportunities you would not** —
+an AE mid-deal is invisible from outside the CRM. **The app enforces it**, not just the
 orchestrator prompt: a run naming a suppressed account is refused with 409 before
 a token is spent, suppressed rows are excluded from bulk selection, and an
 `until` date in the past stops suppressing (an expired cooloff).
 
-Matching is by domain and by normalized company name, and it runs *after* URL
-normalization — otherwise a customer pasted as `https://www.acme-co.com/fleet`
-sails straight past a list that contains `Acme Co`.
+Both sides of the match generate the same candidate keys (`brieflib.suppression_keys`)
+— bare domain, normalized name, and the domain's second-level label — and the
+check runs *after* URL normalization. Each of those is load-bearing: a row
+holding a bare name (`Acme Co`) has to match an input arriving as a URL
+(`https://www.acme-co.com/fleet`), and `normalize_company` strips legal suffixes
+but not TLDs, so `acme-co.com` and `Acme Co` do not otherwise converge.
 
 This matters more than it looks. The FIT score is computed from technographics,
 so your own customers — high-velocity revtech with big AE teams — are exactly
