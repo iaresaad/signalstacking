@@ -172,6 +172,56 @@ def _monitor(run_id, proc, before):
         threading.Event().wait(2)
 
 
+def _monitor_pid(run_id, pid, before):
+    """Track a run this process did not spawn (server restarted mid-run).
+
+    Runs are started with start_new_session, so they survive a server restart —
+    but the monitor thread does not, and without one the next status poll finds
+    a dead PID and reports a successful run as "orphaned". This re-attaches by
+    PID. The exit code is unknowable from outside the parent, so the outcome is
+    inferred from whether briefs landed, and the status says so rather than
+    implying we watched it exit.
+    """
+    while True:
+        alive = _pid_alive(pid)
+        with _status_lock:
+            st = _read_status(run_id) or {}
+            now = _research_mtimes()
+            st["briefs_new"] = sorted(
+                n[:-3] for n, m in now.items() if n not in before or m > before[n] + 1
+            )
+            st["reattached"] = True
+            if not alive:
+                cancelled = st.get("state") == "cancelling"
+                landed = bool(st["briefs_new"])
+                st.update(
+                    state="cancelled" if cancelled else ("done" if landed else "failed"),
+                    ended=datetime.now().isoformat(timespec="seconds"),
+                    note=("outcome inferred after a server restart — exit code unknown"
+                          if not cancelled else ""),
+                )
+                _write_status(run_id, st)
+                ACTIVE.unlink(missing_ok=True)
+                return
+            _write_status(run_id, st)
+        threading.Event().wait(2)
+
+
+def reattach_active_run():
+    """On startup, adopt a run still executing from a previous server."""
+    info = active_run()
+    if not info:
+        return None
+    st = _read_status(info["id"]) or {}
+    if st.get("state") in TERMINAL:
+        return None
+    before = {n: m for n, m in _research_mtimes().items()
+              if n[:-3] not in (st.get("briefs_new") or [])}
+    threading.Thread(target=_monitor_pid, args=(info["id"], info["pid"], before),
+                     daemon=True).start()
+    return info
+
+
 def start_run(payload):
     """Stage runs/<id>/, spawn headless claude, start the monitor. -> (code, dict)"""
     with _lock:
@@ -438,6 +488,15 @@ def enrich_brief(payload):
     people = b.get("contacts") or []
     if not people:
         return 400, {"error": "this brief names no contacts to enrich"}
+    # Same rule as /api/run: never build a contact list for someone we must not
+    # contact. Enrichment also costs credits, so this is money as well as safety.
+    dnc = load_do_not_contact()
+    hit = (dnc.get((b.get("domain") or "").lower())
+           or dnc.get(normalize_company(b["company"])))
+    if hit and not payload.get("override_suppression"):
+        return 409, {"error": "suppressed account — not enriching",
+                     "matched": hit.get("company", ""),
+                     "reason": hit.get("reason", "on the do-not-contact list")}
     if not payload.get("all"):
         people = [c for c in people if c.get("entry")] or people[:1]
     ok, res = apollolib.enrich(
@@ -855,7 +914,7 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
     RUNS.mkdir(exist_ok=True)
-    active_run()  # clears any stale ACTIVE marker on startup
+    adopted = reattach_active_run()  # clears a stale marker, or adopts a live run
     for port in range(args.port, args.port + 11):
         try:
             httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
@@ -869,6 +928,8 @@ def main():
     # tell which port the server actually took.
     if port != args.port:
         print(f"port {args.port} was busy — using {port}", flush=True)
+    if adopted:
+        print(f"adopted run {adopted['id']} still executing (pid {adopted['pid']})", flush=True)
     print(f"Signal Scout → http://127.0.0.1:{port}  (Ctrl-C to stop)", flush=True)
     try:
         httpd.serve_forever()

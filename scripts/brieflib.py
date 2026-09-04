@@ -212,13 +212,20 @@ def parse_target_contact(md):
 
 
 def brief_contacts(md, entry_meta=""):
-    """Every real person worth enriching, entry contact first, deduped by name."""
+    """Every real person worth enriching, entry contact first, deduped by name.
+
+    The metadata `Entry:` field carries free-text qualifiers a researcher adds
+    ("Jane Doe (watch-target, do NOT send)"). Strip those before matching, or
+    the name never equals the committee row and the person is listed twice —
+    once real, once as a nameless duplicate.
+    """
     people = parse_committee(md) or parse_target_contact(md)
+    entry_name = _clean_title(entry_meta) if entry_meta else ""
     for p in people:
-        if entry_meta and p["name"].lower() == entry_meta.lower():
+        if entry_name and p["name"].lower() == entry_name.lower():
             p["entry"] = True
-    if entry_meta and not any(p["entry"] for p in people):
-        people.insert(0, {"role": "Best Point of Entry", "name": entry_meta,
+    if entry_name and _looks_like_name(entry_name) and not any(p["entry"] for p in people):
+        people.insert(0, {"role": "Best Point of Entry", "name": entry_name,
                           "title": "", "linkedin": "", "entry": True})
     seen, out = set(), []
     for p in sorted(people, key=lambda x: not x["entry"]):
