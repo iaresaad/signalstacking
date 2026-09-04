@@ -729,11 +729,16 @@ def remember_accounts(companies):
     if not companies:
         return
     try:
-        existing = {normalize_company(a["company"]) for a in _read_accounts()}
+        existing = set()
+        for a in _read_accounts():
+            existing.update(brieflib.suppression_keys(a["company"], a.get("domain", "")))
     except Exception:
         existing = set()
+    # keys, not the raw name: a run typed as "acme-co.com" must not create a
+    # second row when "Acme Co" is already in the list
     new = [c for c in companies
-           if c.get("company") and normalize_company(c["company"]) not in existing]
+           if c.get("company")
+           and not (set(brieflib.suppression_keys(c["company"], c.get("domain", ""))) & existing)]
     if not new:
         return
     header = ["company", "domain", "full name", "job title", "tools", "email", "notes"]
