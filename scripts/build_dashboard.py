@@ -5,13 +5,13 @@ Run from the repo root (the orchestrator does this automatically):
     python3 scripts/build_dashboard.py
 
 Outputs:
-    research/dashboard.html       — open in any browser; sortable, filterable,
+    research/dashboard.html       open in any browser; sortable, filterable,
                                     copy buttons on every touch. Fully offline.
-    research/outreach-export.csv  — one row per account with contact + sequence,
+    research/outreach-export.csv  one row per account with contact + sequence,
                                     importable into a sequencer or Clay.
 
 Parses both new-format briefs (with Tier/Why-now) and legacy briefs (flagged
-"untiered — re-run for scoring"). Briefs older than STALE_DAYS get a
+"untiered, re-run for scoring"). Briefs older than STALE_DAYS get a
 "re-verify contact" flag. If an accounts CSV has email columns, contacts are
 joined in by company name for the export.
 """
@@ -21,7 +21,7 @@ import json
 from datetime import date
 
 import apollolib
-from brieflib import (  # shared with scout_server.py — edit brieflib, not here
+from brieflib import (  # shared with scout_server.py; edit brieflib, not here
     RESEARCH, TIER_ORDER, load_briefs, load_email_map,
 )
 
@@ -113,7 +113,7 @@ DASHBOARD_TEMPLATE = r"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Signal Stacking — Account Dashboard</title>
+<title>Signal Stacking: Account Dashboard</title>
 <style>
   :root{
     --bg:#faf9f5; --surface:#ffffff; --ink:#1a1915; --ink-2:#5d5a51; --ink-3:#8a8678;
@@ -183,14 +183,14 @@ DASHBOARD_TEMPLATE = r"""<!doctype html>
 </style></head><body>
 <div class="wrap">
   <header>
-    <h1>Signal Stacking — Account Dashboard</h1>
+    <h1>Signal Stacking: Account Dashboard</h1>
     <p>Generated __GENERATED__ · __N_ALL__ accounts · click a tile to filter, a row for the brief + sequence</p>
   </header>
   <div class="tiles" id="tiles">
     <div class="tile" data-tier="🔥"><div class="n">__N_HOT__</div><div class="l">🔥 In-market now</div></div>
     <div class="tile" data-tier="🟡"><div class="n">__N_WARM__</div><div class="l">🟡 Warming</div></div>
     <div class="tile" data-tier="⚪"><div class="n">__N_MON__</div><div class="l">⚪ Monitor</div></div>
-    <div class="tile" data-tier="—"><div class="n">__N_UNT__</div><div class="l">Legacy — never scored</div></div>
+    <div class="tile" data-tier="—"><div class="n">__N_UNT__</div><div class="l">Legacy: never scored</div></div>
   </div>
   <div class="controls"><input id="q" type="search" placeholder="Search company, contact, signal…"></div>
   <div class="tablebox"><table>
@@ -258,14 +258,14 @@ function render(){
     if (open){
       const variants = (b.touch1Variants && b.touch1Variants.length > 1)
         ? b.touch1Variants.map((v,i) => touchBlock(v.label, v.body, 'c1'+i+'-'+b.slug)).join('')
-        : touchBlock('Touch 1 — Email (day 0)', b.touch1, 'c1-'+b.slug);
+        : touchBlock('Touch 1: Email (day 0)', b.touch1, 'c1-'+b.slug);
       const entry = b.entryPoint
         ? `<div class="entrybox"><b>Best point of entry</b>${mdToHtml(b.entryPoint)}</div>` : '';
       detail = `<tr class="detail"><td colspan="5"><div class="detailbox">
         ${entry}
         ${variants}
-        ${touchBlock('Touch 2 — Bump (day 3)', b.touch2, 'c2-'+b.slug)}
-        ${touchBlock('Touch 3 — LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug)}
+        ${touchBlock('Touch 2: Bump (day 3)', b.touch2, 'c2-'+b.slug)}
+        ${touchBlock('Touch 3: LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug)}
         <div class="briefmd">${mdToHtml(b.markdown)}</div>
         <div class="meta">source file: research/${esc(b.file)}${b.email ? ' · contact email on file: '+esc(b.email) : ''}</div>
       </div></td></tr>`;
@@ -274,8 +274,8 @@ function render(){
       <td class="co">${esc(b.company)}${sw}</td>
       <td><span class="chip ${TIER_CLASS[b.tier]}">${b.tier==='—'?'':b.tier+' '}${esc(b.tierLabel)}</span>${flags?'<div>'+flags+'</div>':''}</td>
       <td class="why">${esc(b.whyNow)}</td>
-      <td>${esc(b.contact)||'<span class="meta">—</span>'}</td>
-      <td class="meta">${esc(b.researched)||'—'}</td>
+      <td>${esc(b.contact)||'<span class="meta">none</span>'}</td>
+      <td class="meta">${esc(b.researched)||'unknown'}</td>
     </tr>${detail}`;
   }).join('');
 }

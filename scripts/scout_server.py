@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Signal Scout — local web app + run orchestrator for Signal Stacking.
+"""Signal Scout: local web app + run orchestrator for Signal Stacking.
 
     python3 scripts/scout_server.py [--port 8765]
 
@@ -10,7 +10,7 @@ headless `claude -p "/signal-stacking …"` runs on request. One run at a time.
 Env:
     SCOUT_BYPASS=1   spawn runs with --permission-mode bypassPermissions
                      instead of the default acceptEdits + tool allowlist.
-                     Only if a run's log shows tool-permission denials —
+                     Only if a run's log shows tool-permission denials:
                      bypass lets the headless agent run arbitrary commands.
 """
 
@@ -86,8 +86,8 @@ def active_run():
         return None
     if not _pid_alive(info.get("pid")):
         # PID gone. Usually the monitor thread is mid-cleanup and has already
-        # recorded the real outcome — only claim "orphaned" if it never did.
-        _finalize_status(info.get("id"), "failed", note="orphaned — process gone")
+        # recorded the real outcome. Only claim "orphaned" if it never did.
+        _finalize_status(info.get("id"), "failed", note="orphaned, process gone")
         ACTIVE.unlink(missing_ok=True)
         return None
     return info
@@ -105,7 +105,7 @@ def _read_status(run_id):
 
 
 def _write_status(run_id, st):
-    """Atomic replace — a partial write must never leave unparseable JSON."""
+    """Atomic replace, so a partial write never leaves unparseable JSON."""
     with _status_lock:
         path = _status_path(run_id)
         tmp = path.with_suffix(".json.tmp")
@@ -176,7 +176,7 @@ def _monitor(run_id, proc, before):
 def _monitor_pid(run_id, pid, before):
     """Track a run this process did not spawn (server restarted mid-run).
 
-    Runs are started with start_new_session, so they survive a server restart —
+    Runs are started with start_new_session, so they survive a server restart,
     but the monitor thread does not, and without one the next status poll finds
     a dead PID and reports a successful run as "orphaned". This re-attaches by
     PID. The exit code is unknowable from outside the parent, so the outcome is
@@ -198,7 +198,7 @@ def _monitor_pid(run_id, pid, before):
                 st.update(
                     state="cancelled" if cancelled else ("done" if landed else "failed"),
                     ended=datetime.now().isoformat(timespec="seconds"),
-                    note=("outcome inferred after a server restart — exit code unknown"
+                    note=("outcome inferred after a server restart, exit code unknown"
                           if not cancelled else ""),
                 )
                 _write_status(run_id, st)
@@ -258,7 +258,7 @@ def start_run(payload):
                                 "reason": hit.get("reason", "on the do-not-contact list")})
         if blocked and not payload.get("override_suppression"):
             return 409, {"error": "suppressed accounts in this run", "blocked": blocked,
-                         "detail": "On accounts/do-not-contact.csv — current customers, "
+                         "detail": "On accounts/do-not-contact.csv: current customers, "
                                    "open opportunities or cooloffs. Remove them from the "
                                    "run, or re-send with override_suppression to proceed."}
 
@@ -419,7 +419,7 @@ def app_state():
     briefs = attach_enrichment(load_briefs(today, load_email_map()))
     by_slug = {b["slug"]: b for b in briefs}
     # Slug alone is too strict a join: an accounts CSV says "Docusign, Inc."
-    # while the brief is docusign.md, and the row would read "no brief" —
+    # while the brief file is named differently, so the row would read "no brief"
     # inviting a paid re-run of research that already exists.
     by_norm, by_dom = {}, {}
     for b in briefs:
@@ -511,7 +511,7 @@ def enrich_brief(payload):
     dnc = load_do_not_contact()
     hit = lookup_suppressed(dnc, b["company"], b.get("domain", ""))
     if hit and not payload.get("override_suppression"):
-        return 409, {"error": "suppressed account — not enriching",
+        return 409, {"error": "suppressed account, not enriching",
                      "matched": hit.get("company", ""),
                      "reason": hit.get("reason", "on the do-not-contact list")}
     if not payload.get("all"):
@@ -545,7 +545,7 @@ def enrich_estimate(payload):
 # A dead Exa key is invisible where you'd look for it: `claude mcp list` reports
 # the server "Connected" because the key rides in the URL query string, so the
 # transport handshake succeeds and only the searches 401. The orchestrator builds
-# its lane list from servers that respond, so a dead key still counts as a lane —
+# its lane list from servers that respond, so a dead key still counts as a lane:
 # it widens the waves and sends half the accounts down a lane that silently falls
 # back to plain WebSearch. The only honest check is a real search.
 CLAUDE_CONFIG = Path.home() / ".claude.json"
@@ -587,7 +587,7 @@ def _probe_lane(name, key):
 
 
 def lane_status(force=False):
-    """Which Exa lanes actually search. Cached — /api/state polls every 3s."""
+    """Which Exa lanes actually search. Cached, because /api/state polls every 3s."""
     now = time.time()
     if force or now - _lanes["at"] > LANE_TTL or not _lanes["lanes"]:
         lanes = _exa_lanes()
@@ -609,7 +609,7 @@ def lane_status(force=False):
         "degraded": bool(dead),
         "checked": datetime.fromtimestamp(_lanes["at"]).isoformat(timespec="seconds"),
         "warning": ("" if not dead else
-                    f"{', '.join(l['name'] for l in dead)} configured but NOT searching — "
+                    f"{', '.join(l['name'] for l in dead)} configured but NOT searching. "
                     f"runs will size waves for {len(lanes)} lanes and silently fall back to "
                     f"WebSearch on the dead one. Fix the key or remove the server."),
     }
@@ -620,7 +620,7 @@ APOLLO_HEALTH_TTL = 300  # seconds
 
 
 def apollo_status(force=False):
-    """Key/webhook status. The health probe is cached — /api/state polls every
+    """Key/webhook status. The health probe is cached because /api/state polls every
     3s and must not make a network call to Apollo on every poll."""
     now = time.time()
     if force or now - _apollo_health["at"] > APOLLO_HEALTH_TTL:
@@ -636,7 +636,7 @@ def apollo_status(force=False):
 def record_spend(run_id, payload, est):
     """Append a launched run to the spend ledger.
 
-    Estimates only — the API does not report per-run token usage back here, so
+    Estimates only. The API does not report per-run token usage back here, so
     this is a budget tracker, not a bill. Labelled as such everywhere it shows.
     """
     try:
@@ -677,7 +677,7 @@ def spend_summary():
         return e
     out = {"runs": len(ledger), "windows": {},
            "recent": [_clean(e) for e in ledger[-8:][::-1]],
-           "note": "estimates at API list prices — a budget guide, not a bill"}
+           "note": "estimates at API list prices, a budget guide and not a bill"}
     for label, days in (("today", 1), ("last7", 7), ("last30", 30), ("all", None)):
         sel = []
         for e in ledger:
@@ -702,7 +702,7 @@ def spend_summary():
 
 
 def estimate(payload):
-    """Cost preview for a proposed run — the 'be smart about tokens' gate."""
+    """Cost preview for a proposed run: the 'be smart about tokens' gate."""
     companies = payload.get("companies") or []
     refresh = bool(payload.get("refresh"))
     single = len(companies) == 1 and payload.get("mode") != "batch"
@@ -969,7 +969,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/apollo/webhook":
             # Apollo delivers mobile numbers here, minutes after the sync match.
             # The tunnel is public, so an unauthenticated endpoint would let
-            # anyone inject fabricated numbers — require the shared secret.
+            # anyone inject fabricated numbers, so require the shared secret.
             token = ""
             if "?" in self.path:
                 token = dict(urllib.parse.parse_qsl(self.path.split("?", 1)[1])).get("t", "")
@@ -1008,7 +1008,7 @@ def main():
     RUNS.mkdir(exist_ok=True)
     # Run state (runs/ACTIVE + status.json) has exactly one writer by design.
     # A second server over the same repo will adopt, finalize and clear runs it
-    # did not start — which is how a stale instance silently corrupts the state
+    # did not start, which is how a stale instance silently corrupts the state
     # of a live one. Detect it and say so rather than failing mysteriously later.
     for _p in range(args.port, args.port + 11):
         try:
@@ -1016,7 +1016,7 @@ def main():
                     f"http://127.0.0.1:{_p}/api/run/status", timeout=1):
                 print(f"WARNING: another Signal Scout is already serving on {_p}. "
                       f"Two servers share runs/ACTIVE and will corrupt each other's "
-                      f"run state — stop the other one (./scout stop) before continuing.",
+                      f"run state. Stop the other one (./scout stop) before continuing.",
                       flush=True)
                 break
         except Exception:
@@ -1035,7 +1035,7 @@ def main():
     # hides this line, and with the 8765..8775 fallback you cannot otherwise
     # tell which port the server actually took.
     if port != args.port:
-        print(f"port {args.port} was busy — using {port}", flush=True)
+        print(f"port {args.port} was busy, using {port}", flush=True)
     if adopted:
         print(f"adopted run {adopted['id']} still executing (pid {adopted['pid']})", flush=True)
     print(f"Signal Scout → http://127.0.0.1:{port}  (Ctrl-C to stop)", flush=True)

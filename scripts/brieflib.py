@@ -24,17 +24,17 @@ FRESH_DAYS = 14  # matches the orchestrator's freshness cache
 
 TIER_ORDER = {"🔥": 0, "🟡": 1, "⚪": 2, "—": 3}
 TIER_LABEL = {"🔥": "In-market now", "🟡": "Warming", "⚪": "Monitor", "—": "Untiered"}
-# A brief with no `Tier:` metadata line predates scoring entirely — it is not a
+# A brief with no `Tier:` metadata line predates scoring entirely. It is not a
 # scoring failure, and no technographic data exists to score it offline. Say so
 # rather than implying the scorer looked at it and returned nothing.
-LEGACY_LABEL = "Legacy — never scored"
+LEGACY_LABEL = "Legacy: never scored"
 
 # Legal suffixes stripped when matching company names across files.
 _SUFFIXES = r"(?:inc|incorporated|ltd|limited|llc|llp|gmbh|co|corp|corporation|plc|sa|ag|bv|oy|ab|pty|holdings)"
 
 
 def slugify(company):
-    """Company name → brief filename stem. Canonical rule — see module docstring."""
+    """Company name → brief filename stem. Canonical rule; see module docstring."""
     s = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
     return re.sub(r"-{2,}", "-", s)
 
@@ -71,7 +71,7 @@ def subsection(md, *names):
 
 
 def strip_md(s):
-    """Plain text from inline markdown — the table shows this raw, unrendered."""
+    """Plain text from inline markdown, because the table shows this raw."""
     s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)   # [label](url) -> label
     s = re.sub(r"(\*\*|__|\*|_|`)", "", s)
     return re.sub(r"\s{2,}", " ", s).strip()
@@ -160,7 +160,7 @@ def parse_committee(md):
     """`## Buying Committee` bullets -> [{role, name, title, linkedin}].
 
     Only `- **Role:** …` bullets are read, which deliberately excludes the
-    free-text "Notable departures" paragraph — those people have left and must
+    free-text "Notable departures" paragraph, because those people have left and must
     never be enriched or contacted.
     """
     body = section(md, "Buying Committee", "Key People")
@@ -216,7 +216,7 @@ def brief_contacts(md, entry_meta=""):
 
     The metadata `Entry:` field carries free-text qualifiers a researcher adds
     ("Jane Doe (watch-target, do NOT send)"). Strip those before matching, or
-    the name never equals the committee row and the person is listed twice —
+    the name never equals the committee row and the person is listed twice:
     once real, once as a nameless duplicate.
     """
     people = parse_committee(md) or parse_target_contact(md)
@@ -263,7 +263,7 @@ def brief_domain(md, company=""):
     """The account's own web domain, for Apollo matching. '' when not inferable.
 
     Prefers an explicitly parenthesised domain, then the most-cited host whose
-    name actually corresponds to the company — never a guess like
+    name actually corresponds to the company. Never a guess like
     `<slug>.com`, because a wrong domain silently produces a wrong Apollo match.
     """
     for m in PAREN_DOMAIN_RE.finditer(section(md, "Company Overview") or md[:1500]):
@@ -339,7 +339,7 @@ def parse_evidence(md):
             if not text:
                 continue
             out.append({"kind": kind, "date": date, "text": text, "sources": sources})
-    # newest first, undated last — recency is the whole point of a signal
+    # newest first, undated last, because recency is the whole point of a signal
     out.sort(key=lambda e: (e["date"] == "", e["date"]), reverse=False)
     out.sort(key=lambda e: e["date"] or "0000", reverse=True)
     return out
@@ -379,7 +379,7 @@ def parse_brief(path, today, email_map):
         angle = section(md, "Suggested Outreach Angle", "Stacked Angles")
         why_now = strip_md(first_line(angle))[:220]
 
-    # New sections (all optional — "" on legacy briefs).
+    # New sections (all optional, "" on legacy briefs).
     committee = section(md, "Buying Committee")
     entry_point = section(md, "Best Point of Entry")
     filings = section(md, "Financial Filings & Earnings", "Financial Filings")
@@ -417,11 +417,11 @@ def parse_brief(path, today, email_map):
 
     flags = []
     if legacy:
-        flags.append("legacy format — re-run to score")
+        flags.append("legacy format, re-run to score")
     elif tier == "—":
-        flags.append("untiered — re-run for scoring")
+        flags.append("untiered, re-run for scoring")
     if age_days is not None and age_days > STALE_DAYS:
-        flags.append(f"{age_days}d old — re-verify contact")
+        flags.append(f"{age_days}d old, re-verify contact")
     if recheck:
         flags.append(f"re-check {recheck}")
 
@@ -518,7 +518,7 @@ def load_do_not_contact(path=None):
 
     Suppression is otherwise only an instruction in the orchestrator prompt. The
     app enforces it too, so a suppressed account cannot be selected and run by
-    accident — emailing a current customer is the expensive kind of mistake.
+    accident. Emailing a current customer is the expensive kind of mistake.
     `until` dates in the past no longer suppress (a cooloff that has expired).
     """
     p = Path(path) if path else ACCOUNTS / "do-not-contact.csv"
@@ -536,7 +536,7 @@ def load_do_not_contact(path=None):
         if until:
             try:
                 if datetime.strptime(until, "%Y-%m-%d").date() < today:
-                    continue  # cooloff expired — no longer suppressed
+                    continue  # cooloff expired, no longer suppressed
             except ValueError:
                 pass
         if row.get("domain"):
@@ -551,8 +551,8 @@ def suppression_keys(company="", domain=""):
 
     A suppression row usually has a bare name ("Acme Co") while the thing being
     checked can arrive as a domain ("acme-co.com", from a pasted URL). Those do
-    not normalize to the same string — `normalize_company` strips legal suffixes,
-    not TLDs — so both sides must generate the same candidate set or the match
+    not normalize to the same string, because `normalize_company` strips legal suffixes
+    and not TLDs, so both sides must generate the same candidate set or the match
     silently misses and a live deal gets prospected.
     """
     keys = []
@@ -581,7 +581,7 @@ def load_hidden(path=None):
     """accounts/hidden.csv -> set of suppression keys to exclude from the app.
 
     Distinct from do-not-contact, which blocks *outreach* but still shows the
-    account so you can see why. Hidden means gone from the UI and every export —
+    account so you can see why. Hidden means gone from the UI and every export,
     for accounts too sensitive to appear in a screenshot or a shared dashboard.
     The research file is left on disk; nothing is deleted.
     """

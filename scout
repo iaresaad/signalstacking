@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bring Signal Scout up and prove it is healthy — one command.
+"""Bring Signal Scout up and prove it is healthy. One command.
 
     ./scout          start (or reuse) the server, run health checks, open the app
     ./scout status   health checks only
@@ -42,7 +42,7 @@ def running_port():
 def start():
     port = running_port()
     if port:
-        print(f"· server already running on {port} — reusing it")
+        print(f"· server already running on {port}, reusing it")
         return port
     log = ROOT / "runs" / "scout.log"
     log.parent.mkdir(exist_ok=True)
@@ -56,7 +56,7 @@ def start():
         if port:
             print(f"· started server on {port}   (log: runs/scout.log)")
             return port
-    print(f"{BAD} server did not come up — see runs/scout.log")
+    print(f"{BAD} server did not come up. See runs/scout.log")
     sys.exit(1)
 
 
@@ -82,7 +82,7 @@ def checks(port):
     if not lanes.get("configured"):
         line(WARN, "search lanes", "no exa* MCP servers configured")
     elif lanes.get("degraded"):
-        line(BAD, "search lanes", f"{lanes['live']}/{lanes['configured']} live — {lanes['warning'][:70]}")
+        line(BAD, "search lanes", f"{lanes['live']}/{lanes['configured']} live. {lanes['warning'][:70]}")
         problems.append("a search lane is configured but not searching")
     else:
         line(OK, "search lanes",
@@ -91,7 +91,7 @@ def checks(port):
     sup = st.get("suppressed_rows", 0)
     blocked = [a["company"] for a in st.get("accounts", []) if a.get("suppressed")]
     if not sup:
-        line(BAD, "do-not-contact list", "EMPTY — nothing is suppressed, do not send")
+        line(BAD, "do-not-contact list", "EMPTY. Nothing is suppressed, do not send")
         problems.append("suppression list is empty")
     else:
         line(OK, "do-not-contact list",
@@ -105,9 +105,9 @@ def checks(port):
 
     ap = st.get("apollo") or {}
     if not ap.get("key_configured"):
-        line(WARN, "apollo enrichment", "no APOLLO_API_KEY in .env — emails unavailable")
+        line(WARN, "apollo enrichment", "no APOLLO_API_KEY in .env, emails unavailable")
     elif not ap.get("key_valid"):
-        line(BAD, "apollo enrichment", "key rejected — needs a master key")
+        line(BAD, "apollo enrichment", "key rejected, needs a master key")
         problems.append("apollo key invalid")
     else:
         mob = "mobiles ON" if ap.get("phone_available") else "emails only (no tunnel)"
@@ -133,7 +133,7 @@ def main():
     print("─" * 62)
     port = running_port() if cmd == "status" else start()
     if not port:
-        print(f"{BAD} not running — use ./scout")
+        print(f"{BAD} not running. Use ./scout")
         sys.exit(1)
     healthy = checks(port)
     url = f"http://127.0.0.1:{port}"
@@ -141,7 +141,7 @@ def main():
     if healthy:
         print(f"READY → {url}")
     else:
-        print(f"ATTENTION — fix the FAIL line(s) above before sending anything.\n"
+        print(f"ATTENTION: fix the FAIL line(s) above before sending anything.\n"
               f"         → {url}")
     if cmd != "status":
         subprocess.run(["open", url], stderr=subprocess.DEVNULL)

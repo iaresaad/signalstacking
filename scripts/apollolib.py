@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Apollo enrichment for Signal Stacking — emails + mobile numbers.
+"""Apollo enrichment for Signal Stacking: emails + mobile numbers.
 
 Turns the people `brieflib.brief_contacts()` pulls out of a brief into
 reachable contacts. Two things about Apollo's API drive the whole design:
 
 1. Emails come back synchronously from `/people/bulk_match`. Mobile numbers do
-   NOT — Apollo refuses `reveal_phone_number` unless you also pass a
+   NOT. Apollo refuses `reveal_phone_number` unless you also pass a
    `webhook_url`, then delivers phones to it minutes later, out of band. The
    Scout server exposes `/api/apollo/webhook` for exactly that, but it only
    works when a public tunnel points at this machine (see `.env.example`).
@@ -121,7 +121,7 @@ def load_cache():
 
 
 def save_cache(cache):
-    """Atomic write — the webhook thread and a request thread both write here."""
+    """Atomic write, since the webhook thread and a request thread both write here."""
     with _cache_lock:
         CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         tmp = CACHE_PATH.with_suffix(".json.tmp")
@@ -184,7 +184,7 @@ def health():
             d = json.loads(r.read() or b"{}")
             return bool(d.get("is_logged_in")), json.dumps(d)
     except urllib.error.HTTPError as e:
-        return False, f"HTTP {e.code} — key rejected (enrichment needs a MASTER key)"
+        return False, f"HTTP {e.code}: key rejected (enrichment needs a MASTER key)"
     except Exception as e:
         return False, f"{type(e).__name__}: {e}"
 
@@ -220,7 +220,7 @@ def _phones(match):
             "number": num,
             "type": (ph.get("type") or "").lower(),
             "mobile": (ph.get("type") or "").lower() in ("mobile", "cell", "personal"),
-            # Apollo flags numbers on do-not-call registries. Surface it —
+            # Apollo flags numbers on do-not-call registries. Surface it,
             # dialling one of these is a compliance problem, not a nuance.
             "dnc": bool(ph.get("dnc_status") and ph["dnc_status"] != "no_status"),
             "status": ph.get("status") or "",
@@ -268,7 +268,7 @@ def enrich(people, domain="", reveal_phone=False, force=False, webhook_override=
     implying the person has none.
     """
     if not api_key():
-        return False, {"error": "APOLLO_API_KEY is not set — add it to .env"}
+        return False, {"error": "APOLLO_API_KEY is not set. Add it to .env"}
 
     cache = load_cache()
     want_phone = bool(reveal_phone and (webhook_override or phone_available()))
@@ -312,7 +312,7 @@ def enrich(people, domain="", reveal_phone=False, force=False, webhook_override=
         "cached": len(people) - fetched,
         "phone_requested": want_phone,
         "phone_note": ("" if want_phone else
-                       "mobile numbers skipped — set APOLLO_WEBHOOK_BASE to a public "
+                       "mobile numbers skipped. Set APOLLO_WEBHOOK_BASE to a public "
                        "tunnel URL; Apollo will not reveal phones without a webhook"),
         "webhook": hook,
     }

@@ -5,7 +5,7 @@
 <title>Signal Scout</title>
 <style>
   /* Palette follows trumpet's brand: violet primary, deep navy ink, lavender
-     ground, coral for urgency. Tier colours stay semantically distinct —
+     ground, coral for urgency. Tier colours stay semantically distinct:
      coral = act now, amber = warming, violet-grey = monitor. */
   :root{
     --bg:#f7f5ff; --surface:#ffffff; --ink:#171043; --ink-2:#5b5480; --ink-3:#8b85ab;
@@ -241,7 +241,7 @@
   .logtail{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;
     font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);max-height:200px;overflow:auto;white-space:pre-wrap}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:10}
-  /* must beat .modal-bg's display:flex — the [hidden] UA rule loses to author styles */
+  /* must beat .modal-bg's display:flex, because the [hidden] UA rule loses to author styles */
   .modal-bg[hidden],[hidden]{display:none !important}
   .modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:520px;width:92%}
   .modal h3{margin:0 0 10px;font-size:16px}
@@ -259,9 +259,9 @@
         <span class="mark" aria-hidden="true">◆</span>
         <h1>Signal Scout</h1>
       </div>
-      <p>Who's in-market right now — and who to email first.</p>
+      <p>Who's in-market right now, and who to email first.</p>
       <div class="herobar">
-        <span id="lanes" title="Exa search lanes — verified with a real search"></span>
+        <span id="lanes" title="Exa search lanes, verified with a real search"></span>
         <span class="pill" id="runpill">idle</span>
       </div>
     </div>
@@ -271,11 +271,11 @@
   <div class="card" id="runpanel">
     <h2>Scout accounts</h2>
     <div class="rowflex">
-      <input type="text" id="oneoff" placeholder="Company, domain or website URL — comma-separate for several (e.g. Stripe, notion.so, https://ramp.com)">
+      <input type="text" id="oneoff" placeholder="Company, domain or website URL. Comma-separate for several (e.g. Stripe, notion.so, https://ramp.com)">
       <button id="btn-run-oneoff">Run</button>
     </div>
     <div class="rowflex" style="margin-top:10px">
-      <div class="drop" id="csvdrop" style="flex:1">Drop an accounts CSV here (Clay exports work) — or click to choose. Adds to your list by default. <span class="meta" id="acctcount"></span></div>
+      <div class="drop" id="csvdrop" style="flex:1">Drop an accounts CSV here (Clay exports work), or click to choose. Adds to your list by default. <span class="meta" id="acctcount"></span></div>
     </div>
     <div id="acctpicker"></div>
     <div class="rowflex" style="margin-top:10px" id="batchbar" hidden>
@@ -290,15 +290,15 @@
     <div class="budget" id="budget"></div>
 
     <details id="signals">
-      <summary>Signal sources — closed-lost CRM data &amp; product usage</summary>
+      <summary>Signal sources: closed-lost CRM data &amp; product usage</summary>
       <div class="card" style="margin-top:10px">
         <h2>Closed-lost (CRM export)</h2>
-        <div class="drop" id="cldrop">Drop your closed-lost CSV (company, close date, loss reason, competitor, champion…) — or click to choose</div>
+        <div class="drop" id="cldrop">Drop your closed-lost CSV (company, close date, loss reason, competitor, champion…), or click to choose</div>
         <div id="clpreview" class="meta" style="margin-top:8px"></div>
       </div>
       <div class="card" style="margin-top:10px">
         <h2>Product usage data <span class="meta" id="usagecount"></span></h2>
-        <textarea id="usagemd" spellcheck="false" placeholder="### company-slug&#10;- Rep Name, Title — 12 rooms created, 19 shared&#10;- Account-level: 7 sign-ups on free tier"></textarea>
+        <textarea id="usagemd" spellcheck="false" placeholder="### company-slug&#10;- Rep Name, Title: 12 rooms created, 19 shared&#10;- Account-level: 7 sign-ups on free tier"></textarea>
         <div class="rowflex" style="margin-top:8px"><button class="ghost small" id="btn-usage">Save usage data</button><span class="meta" id="usagemsg"></span></div>
       </div>
     </details>
@@ -386,7 +386,7 @@ async function poll(){
       }
     });
     if (lastRunState==='running' && s.run.state==='done') toast('Run complete ✓');
-    if (lastRunState==='running' && s.run.state==='failed') toast('Run FAILED — check the log tail');
+    if (lastRunState==='running' && s.run.state==='failed') toast('Run FAILED. Check the log tail');
     lastRunState = s.run.state;
     STATE = s;
     render();
@@ -435,7 +435,7 @@ function visible(){
 function touchBlock(label, text, id, blocked){
   if (!text) return '';
   const btn = blocked
-    ? '<button class="copy" disabled title="suppressed — do not contact">Copy disabled</button>'
+    ? '<button class="copy" disabled title="suppressed: do not contact">Copy disabled</button>'
     : `<button class="copy" data-copy="${id}">Copy</button>`;
   return `<div class="touch"><h4>${esc(label)}${btn}</h4><pre id="${id}">${esc(text)}</pre></div>`;
 }
@@ -443,7 +443,7 @@ function touchBlock(label, text, id, blocked){
 function contactRow(c){
   const a = c.apollo;
   const mark = c.entry ? '<span class="entrymark">entry</span> ' : '';
-  let mail = '<span class="meta">—</span>', phone = '<span class="meta">—</span>';
+  let mail = '<span class="meta">not found</span>', phone = '<span class="meta">not found</span>';
   if (a && a.emails && a.emails.length){
     const e0 = a.emails[0];
     const tag = e0.status === 'verified' ? '<span class="tagx ok">verified</span>'
@@ -456,7 +456,7 @@ function contactRow(c){
     phone = a.phones.map(p =>
       `<span class="mono">${esc(p.number)}</span> ` +
       (p.mobile ? '<span class="tagx ok">mobile</span>' : `<span class="tagx warn">${esc(p.type||'other')}</span>`) +
-      (p.dnc ? ' <span class="tagx bad">DNC — do not call</span>' : '')
+      (p.dnc ? ' <span class="tagx bad">DNC: do not call</span>' : '')
     ).join('<br>');
   } else if (a && a.phone_pending){ phone = '<span class="tagx warn">pending webhook…</span>'; }
   return `<tr>
@@ -471,7 +471,7 @@ function contactsHtml(b){
   if (!cs.length) return '';
   const en = b.enriched || {contacts:cs.length, with_email:0, with_phone:0};
   let note = '';
-  if (!ap.key_configured) note = '<span class="meta">Apollo key not set — add APOLLO_API_KEY to .env</span>';
+  if (!ap.key_configured) note = '<span class="meta">Apollo key not set. Add APOLLO_API_KEY to .env</span>';
   else if (!ap.phone_available) note = '<span class="meta">emails only · no tunnel for mobiles</span>';
   return `<div class="contacts">
     <div class="chead"><span>Contacts (${cs.length})</span>
@@ -491,7 +491,7 @@ function evidenceHtml(b){
   if (!ev.length) return '';
   const show = ev.slice(0, 6), rest = ev.slice(6);
   const li = e => `<li>
-      <span class="when">${esc(e.date || '—')}</span>
+      <span class="when">${esc(e.date || 'undated')}</span>
       <span class="what"><span class="kind ${esc(e.kind)}">${esc(KIND_LABEL[e.kind]||e.kind)}</span>${esc(e.text)}
         <div>${e.sources.length
           ? e.sources.map(s => `<a class="src" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join('')
@@ -536,21 +536,21 @@ function detailHtml(b){
         `<button data-var="${i}" class="${i===Math.min(openVariant,b.touch1Variants.length-1)?'on':''}">${esc(x.label.replace(/^Touch 1\s*[—-]\s*/,''))}</button>`).join('')}</div>`
       + touchBlock(v.label, v.body, 'c1-'+b.slug, b.suppressed);
   } else {
-    t1 = touchBlock('Touch 1 — Email (day 0)', b.touch1, 'c1-'+b.slug, b.suppressed);
+    t1 = touchBlock('Touch 1: Email (day 0)', b.touch1, 'c1-'+b.slug, b.suppressed);
   }
   const dnc = b.suppressed
-    ? `<div class="lanewarn"><b>⛔ Do not contact — this is an existing customer.</b>
+    ? `<div class="lanewarn"><b>⛔ Do not contact. This is an existing customer.</b>
        ${esc(b.suppress_reason)}. The sequence below is kept for reference only;
        copy is disabled so it cannot be sent by accident.</div>` : '';
   const legacy = b.legacy
-    ? `<div class="legacybox"><b>Legacy brief — never scored.</b> It predates tier
+    ? `<div class="legacybox"><b>Legacy brief: never scored.</b> It predates tier
        scoring and carries no Fit/Timing data, so it is not ranked. Re-run it to score.
        <button class="rerun" data-rerun="${esc(b.company)}">Re-run this account</button></div>` : '';
   return `<tr class="detail"><td colspan="5"><div class="detailbox">
     ${dnc}${legacy}${scoreChips(b)}${entry}${contactsHtml(b)}${evidenceHtml(b)}
-    <div class="drafthead">The draft — written from the evidence above</div>${t1}
-    ${touchBlock('Touch 2 — Bump (day 3)', b.touch2, 'c2-'+b.slug, b.suppressed)}
-    ${touchBlock('Touch 3 — LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug, b.suppressed)}
+    <div class="drafthead">The draft, written from the evidence above</div>${t1}
+    ${touchBlock('Touch 2: Bump (day 3)', b.touch2, 'c2-'+b.slug, b.suppressed)}
+    ${touchBlock('Touch 3: LinkedIn note (day 5)', b.touch3, 'c3-'+b.slug, b.suppressed)}
     <div class="briefmd">${mdToHtml(b.markdown)}</div>
     <div class="meta">source: research/${esc(b.file)}${b.email ? ' · email on file: '+esc(b.email) : ''}</div>
   </div></td></tr>`;
@@ -572,7 +572,7 @@ function renderLanes(){
   } else if (w){ w.hidden = true; }
 }
 
-// Cost has to be visible while you are choosing, not only after you click Run —
+// Cost has to be visible while you are choosing, not only after you click Run,
 // that is the moment the decision is actually made.
 let costTimer = null, lastCostKey = '';
 function refreshCost(){
@@ -601,7 +601,7 @@ function refreshCost(){
         + (c.new ? ` · ${c.new} net-new` : '')
         + (c.stale ? ` · ${c.stale} stale` : '')
         + `</span>`
-        + (free ? `<span class="free">${free} already fresh — free</span>` : '')
+        + (free ? `<span class="free">${free} already fresh, free</span>` : '')
         + `<span class="grow"></span>`
         + `<span class="meta">list-price estimate, not a bill</span>`;
     }catch(e){ el.innerHTML = '<span class="meta">estimate unavailable</span>'; }
@@ -647,7 +647,9 @@ function render(){
       <input type="checkbox" data-i="${i}" ${selected.has(i)?'checked':''} ${a.suppressed?'disabled':''}>
       <span class="nm">${esc(a.company)}</span>
       <span class="meta">${esc(a.domain||'')}</span>
-      ${a.tier?`<span class="chip ${TIER_CLASS[a.tier]}">${a.tier}</span>`:'<span class="badge">no brief</span>'}
+      ${!a.tier ? '<span class="badge">no brief</span>'
+        : a.tier === '—' ? '<span class="chip unt">legacy</span>'
+        : `<span class="chip ${TIER_CLASS[a.tier]}">${a.tier}</span>`}
       ${a.has_brief&&!a.fresh?`<span class="badge">${a.age_days}d stale</span>`:''}
       ${a.fresh?`<span class="badge">fresh</span>`:''}
       ${a.suppressed?'<span class="badge sup">⛔ do not contact</span>':''}
@@ -669,7 +671,7 @@ function render(){
          ${f.length
             ? 'Filtering by ' + f.map(x => `${esc(x.label.toLowerCase())} <b>${esc(x.value)}</b>`).join(' and ')
               + '. Those two may simply not overlap.'
-            : 'There are no briefs yet — scout a company above.'}
+            : 'There are no briefs yet. Scout a company above.'}
          ${f.length ? '<div style="margin-top:12px"><button id="clearfilters2">Clear filters</button></div>' : ''}
        </td></tr>`
     : rows.map(b => {
@@ -683,8 +685,8 @@ function render(){
               ? `<span class="chip dnc" title="${esc(b.suppress_reason)}">⛔ do not contact</span>`
               : `<span class="chip ${TIER_CLASS[b.tier]}">${b.tier==='—'?'':b.tier+' '}${esc(b.tierLabel)}</span>`}${cl}${flags?'<div>'+flags+'</div>':''}</td>
         <td class="why">${esc(b.whyNow)}</td>
-        <td>${esc(b.entry||b.contact)||'<span class="meta">—</span>'}</td>
-        <td class="meta">${esc(b.researched)||'—'}</td>
+        <td>${esc(b.entry||b.contact)||'<span class="meta">none</span>'}</td>
+        <td class="meta">${esc(b.researched)||'unknown'}</td>
       </tr>` + (open ? detailHtml(b) : '');
     }).join('');
 }
@@ -692,7 +694,7 @@ function render(){
 /* ── run flow with cost estimate ─────────────────────────────── */
 async function confirmRun(payload, label){
   pendingRun = payload;
-  $('m-title').textContent = 'Confirm run — ' + label;
+  $('m-title').textContent = 'Confirm run: ' + label;
   $('m-body').innerHTML = payload.companies.map(c => esc(c.company||c.domain)).join(', ')
     + (payload.refresh ? ' · <b>refresh</b>' : '');
   $('m-est').textContent = 'estimating cost…';
@@ -701,7 +703,7 @@ async function confirmRun(payload, label){
     const est = await (await fetch('/api/estimate', {method:'POST',
       headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})).json();
     $('m-est').innerHTML = `<span class="big">${esc(est.summary||'estimate unavailable')}</span>
-      Token budget is shared — run what you'll actually work.`;
+      Token budget is shared. Run what you'll actually work.`;
   }catch(e){ $('m-est').textContent = 'estimate unavailable'; }
 }
 
@@ -748,8 +750,8 @@ wireDrop('csvdrop','csvfile', async text => {
   const j = await res.json();
   if (!res.ok){ toast('Error: '+(j.error||'')); return; }
   toast(j.mode === 'merge'
-    ? `Added ${j.added} new — ${j.accounts} accounts total`
-    : `Replaced list — ${j.accounts} accounts`);
+    ? `Added ${j.added} new, ${j.accounts} accounts total`
+    : `Replaced list, ${j.accounts} accounts`);
   poll();
 });
 
@@ -762,7 +764,7 @@ wireDrop('cldrop','clfile', async text => {
 function renderClPreview(j){
   if (!j.rows || !j.rows.length){ $('clpreview').textContent=''; return; }
   $('clpreview').innerHTML = `${j.rows.length} closed-lost rows on file` +
-    (j.unmatched ? ` · <b style="color:var(--hot-ink)">${j.unmatched} don't match any account or brief</b> — fix the company name or add a domain so they aren't missed:` : ' · all matched ✓') +
+    (j.unmatched ? ` · <b style="color:var(--hot-ink)">${j.unmatched} don't match any account or brief</b>. Fix the company name or add a domain so they aren't missed:` : ' · all matched ✓') +
     '<br>' + j.rows.filter(r=>!r.matched_account&&!r.matched_brief).map(r=>esc(r.company)).join(', ');
 }
 
@@ -796,12 +798,12 @@ $('btn-run-batch').addEventListener('click', () => {
   const sup = picked.filter(a => a.suppressed);
   if (sup.length && !confirm(
       `${sup.length} selected account(s) are on your do-not-contact list:\n\n` +
-      sup.slice(0,8).map(a => `  • ${a.company} — ${a.suppress_reason}`).join('\n') +
+      sup.slice(0,8).map(a => `  • ${a.company}: ${a.suppress_reason}`).join('\n') +
       (sup.length>8 ? `\n  …and ${sup.length-8} more` : '') +
       `\n\nThey will be skipped. Continue with the rest?`)) return;
   const companies = picked.filter(a => !a.suppressed)
     .map(a => ({company:a.company, domain:a.domain, target:a.target, tools:a.tools}));
-  if (!companies.length){ toast('Nothing to run — all selected accounts are suppressed'); return; }
+  if (!companies.length){ toast('Nothing to run. All selected accounts are suppressed'); return; }
   confirmRun({mode:'batch', companies, refresh: $('refresh').checked}, companies.length+' selected accounts');
 });
 function closeModal(){ $('modal').hidden = true; pendingRun = null; }
@@ -849,7 +851,7 @@ $('rows').addEventListener('click', async e => {
         `Enrich ${est.to_fetch} contact(s) at ${est.company}${phones}.\n` +
         `${est.cached} already cached (free).\n\n` +
         `Apollo credits: ${est.credits_min}` +
-        (est.credits_max !== est.credits_min ? `–${est.credits_max}` : '') + '. Continue?')) return;
+        (est.credits_max !== est.credits_min ? `-${est.credits_max}` : '') + '. Continue?')) return;
     en.disabled = true; en.textContent = 'Enriching…';
     const r = await (await fetch('/api/enrich', {method:'POST',
       headers:{'Content-Type':'application/json'},
