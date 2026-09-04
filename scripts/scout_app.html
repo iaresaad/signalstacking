@@ -187,6 +187,16 @@
   .nosrc{font-size:11px;color:var(--warm-ink);background:var(--warm-bg);border-radius:999px;padding:1px 8px}
   .drafthead{font-weight:600;font-size:13px;margin:2px 0 -4px}
   .scorechips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #filterbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;
+    font-size:13px;color:var(--ink-2)}
+  #filterbar .fchip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);
+    border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-weight:600;color:var(--ink)}
+  #filterbar .fchip b{font-weight:800}
+  #filterbar button{background:transparent;color:var(--accent);border:1px solid var(--accent);
+    box-shadow:none;padding:4px 12px;font-size:12px}
+  #filterbar button:hover{background:var(--accent);color:#fff;box-shadow:none;transform:none}
+  .empty{padding:34px 20px;text-align:center;color:var(--ink-2)}
+  .empty .big{display:block;font-weight:700;color:var(--ink);margin-bottom:6px;font-size:15px}
   .tabs{display:flex;gap:6px;flex-wrap:wrap}
   .tabs button{background:var(--chip);color:var(--ink-2);border:1px solid var(--line);font-size:12px;
     padding:7px 14px;box-shadow:none}
@@ -303,6 +313,9 @@
   <div class="rowflex" style="margin-top:12px">
     <input id="q" type="search" placeholder="Search company, contact, signal…">
   </div>
+  <div id="filterbar" hidden></div>
+  <div style="display:none">
+  </div>
   <div class="tablebox"><table>
     <thead><tr>
       <th data-k="company">Company <span class="dir"></span></th>
@@ -371,6 +384,27 @@ async function poll(){
 }
 
 /* ── render ──────────────────────────────────────────────────── */
+function activeFilters(){
+  const f = [];
+  if (tierFilter) f.push({kind:'tier', label:'Tier', value:(TIER_LABEL_OF(tierFilter)||tierFilter)});
+  if (query) f.push({kind:'query', label:'Search', value:query});
+  return f;
+}
+function TIER_LABEL_OF(t){
+  const b = (STATE.briefs||[]).find(x => x.tier === t);
+  return b ? (b.tier === '—' ? b.tierLabel : b.tier + ' ' + b.tierLabel) : t;
+}
+
+function renderFilterBar(shown, total){
+  const el = $('filterbar'); if (!el) return;
+  const f = activeFilters();
+  el.hidden = !f.length;
+  if (!f.length) return;
+  el.innerHTML = f.map(x => `<span class="fchip">${esc(x.label)}: <b>${esc(x.value)}</b></span>`).join('')
+    + `<span>showing ${shown} of ${total}</span>`
+    + `<button id="clearfilters">Clear filters</button>`;
+}
+
 function visible(){
   let rows = STATE.briefs.filter(b => !tierFilter || b.tier === tierFilter);
   if (query){
@@ -568,8 +602,17 @@ function render(){
 
   // hottest table
   const rows = visible();
+  renderFilterBar(rows.length, (STATE.briefs||[]).length);
+  const f = activeFilters();
   $('rows').innerHTML = !rows.length
-    ? '<tr><td colspan="5" class="empty">No accounts match.</td></tr>'
+    ? `<tr><td colspan="5" class="empty">
+         <span class="big">Nothing matches these filters.</span>
+         ${f.length
+            ? 'Filtering by ' + f.map(x => `${esc(x.label.toLowerCase())} <b>${esc(x.value)}</b>`).join(' and ')
+              + '. Those two may simply not overlap.'
+            : 'There are no briefs yet — scout a company above.'}
+         ${f.length ? '<div style="margin-top:12px"><button id="clearfilters2">Clear filters</button></div>' : ''}
+       </td></tr>`
     : rows.map(b => {
       const flags = (b.flags||[]).map(f => `<span class="flag">${esc(f)}</span>`).join('');
       const sw = b.switchPlay ? '<div class="switch">switch play</div>' : '';
@@ -783,6 +826,13 @@ $('rows').addEventListener('click', async e => {
   if (vt){ openVariant = +vt.dataset.var; render(); e.stopPropagation(); return; }
   const tr = e.target.closest('tr.row');
   if (tr){ openSlug = openSlug === tr.dataset.slug ? null : tr.dataset.slug; openVariant = 0; render(); }
+});
+document.addEventListener('click', e => {
+  if (e.target.id === 'clearfilters' || e.target.id === 'clearfilters2'){
+    tierFilter = null; query = ''; $('q').value = '';
+    document.querySelectorAll('.tile').forEach(x => x.classList.remove('active'));
+    render();
+  }
 });
 $('tiles').addEventListener('click', e => {
   const t = e.target.closest('.tile'); if (!t) return;

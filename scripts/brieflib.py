@@ -577,6 +577,32 @@ def lookup_suppressed(dnc, company="", domain=""):
     return None
 
 
+def load_hidden(path=None):
+    """accounts/hidden.csv -> set of suppression keys to exclude from the app.
+
+    Distinct from do-not-contact, which blocks *outreach* but still shows the
+    account so you can see why. Hidden means gone from the UI and every export —
+    for accounts too sensitive to appear in a screenshot or a shared dashboard.
+    The research file is left on disk; nothing is deleted.
+    """
+    p = Path(path) if path else ACCOUNTS / "hidden.csv"
+    keys = set()
+    if not p.is_file():
+        return keys
+    try:
+        rows = list(csv.DictReader(p.open(encoding="utf-8-sig")))
+    except Exception:
+        return keys
+    for r in rows:
+        row = {(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
+        keys.update(suppression_keys(row.get("company", ""), row.get("domain", "")))
+    return keys
+
+
+def is_hidden(hidden, company="", domain=""):
+    return bool(hidden) and bool(set(suppression_keys(company, domain)) & hidden)
+
+
 def load_closed_lost(path=None):
     """accounts/closed-lost.csv → {join_key: row}.
 
@@ -608,6 +634,7 @@ def load_briefs(today, email_map=None):
     if email_map is None:
         email_map = load_email_map()
     domain_map = load_domain_map()
+    hidden = load_hidden()
     briefs = []
     for p in sorted(RESEARCH.glob("*.md")):
         if p.name.startswith("_"):
@@ -615,6 +642,8 @@ def load_briefs(today, email_map=None):
         try:
             b = parse_brief(p, today, email_map)
             b["domain"] = domain_map.get(normalize_company(b["company"])) or b["domain"]
+            if is_hidden(hidden, b["company"], b["domain"]):
+                continue  # too sensitive to render anywhere
             briefs.append(b)
         except Exception as e:  # never let one bad brief kill the caller
             print(f"  ! skipped {p.name}: {e}")

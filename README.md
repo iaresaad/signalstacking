@@ -164,6 +164,15 @@ they answer different questions ("are they the kind of company that buys?" vs
 once there are at least 8 scored accounts to rank against — below that a
 percentile is noise dressed as precision.
 
+## Hiding an account from the app entirely
+
+`accounts/hidden.csv` (`company,domain,reason`) removes an account from the UI,
+the dashboard and every export — for live deals too sensitive to appear in a
+screenshot or a shared link. This is distinct from suppression: **do-not-contact
+blocks outreach but still shows the account so you can see why; hidden means
+gone.** The research file stays on disk untouched; delete the row to bring it
+back. `./scout` reports the count so you always know something is being withheld.
+
 ## Suppression (do-not-contact)
 
 `accounts/do-not-contact.csv` (`company,domain,reason,until`) lists current

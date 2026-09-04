@@ -98,6 +98,11 @@ def checks(port):
              f"{sup} companies · {len(blocked)} of your accounts blocked"
              + (f" ({', '.join(blocked[:3])})" if blocked else ""))
 
+    hid = st.get("hidden_rows", 0)
+    if hid:
+        line(OK, "hidden from the app",
+             f"{hid} account(s) withheld from the UI and every export (accounts/hidden.csv)")
+
     ap = st.get("apollo") or {}
     if not ap.get("key_configured"):
         line(WARN, "apollo enrichment", "no APOLLO_API_KEY in .env — emails unavailable")

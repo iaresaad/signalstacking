@@ -37,9 +37,9 @@ from pathlib import Path
 import apollolib
 import brieflib
 import costlib
-from brieflib import (ACCOUNTS, FRESH_DAYS, RESEARCH, ROOT, load_briefs,
+from brieflib import (ACCOUNTS, FRESH_DAYS, RESEARCH, ROOT, is_hidden, load_briefs,
                       load_closed_lost, load_do_not_contact, load_email_map,
-                      lookup_suppressed, normalize_company, slugify)
+                      load_hidden, lookup_suppressed, normalize_company, slugify)
 
 RUNS = ROOT / "runs"
 ACTIVE = RUNS / "ACTIVE"
@@ -377,10 +377,13 @@ def _read_accounts():
     tools = col("tools", "technolog")
     mail = next((cols[c] for c in cols
                  if "email" in c and "?" not in c and "all" not in c), None)
+    hidden = load_hidden()
     out, seen = [], set()
     for r in rows:
         company = (r.get(comp) or "").strip() if comp else ""
         if not company:
+            continue
+        if is_hidden(hidden, company, (r.get(dom) or "").strip().lower() if dom else ""):
             continue
         key = normalize_company(company)
         if key in seen:
@@ -395,6 +398,18 @@ def _read_accounts():
             "email": (r.get(mail) or "").strip() if mail else "",
         })
     return out
+
+
+def _hidden_count():
+    """How many accounts are withheld from the UI entirely."""
+    p = ACCOUNTS / "hidden.csv"
+    if not p.is_file():
+        return 0
+    try:
+        return sum(1 for r in csv.DictReader(p.open(encoding="utf-8-sig"))
+                   if (r.get("company") or "").strip())
+    except Exception:
+        return 0
 
 
 def app_state():
@@ -445,6 +460,7 @@ def app_state():
         "accounts": accounts,
         "closed_lost_rows": len(set(id(v) for v in cl.values())),
         "suppressed_rows": len({id(v) for v in dnc.values()}),
+        "hidden_rows": _hidden_count(),
         "usage_companies": sorted(usage),
         "run": run_status(),
         "apollo": apollo_status(),
@@ -917,6 +933,22 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
     RUNS.mkdir(exist_ok=True)
+    # Run state (runs/ACTIVE + status.json) has exactly one writer by design.
+    # A second server over the same repo will adopt, finalize and clear runs it
+    # did not start — which is how a stale instance silently corrupts the state
+    # of a live one. Detect it and say so rather than failing mysteriously later.
+    for _p in range(args.port, args.port + 11):
+        try:
+            with urllib.request.urlopen(
+                    f"http://127.0.0.1:{_p}/api/run/status", timeout=1):
+                print(f"WARNING: another Signal Scout is already serving on {_p}. "
+                      f"Two servers share runs/ACTIVE and will corrupt each other's "
+                      f"run state — stop the other one (./scout stop) before continuing.",
+                      flush=True)
+                break
+        except Exception:
+            pass
+
     adopted = reattach_active_run()  # clears a stale marker, or adopts a live run
     for port in range(args.port, args.port + 11):
         try:

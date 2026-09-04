@@ -22,6 +22,9 @@ accounts/clay-*.csv
 # Private: real closed-lost CRM export (keep closed-lost.example.csv only)
 accounts/closed-lost.csv
 
+# Private: accounts hidden from the UI entirely (sensitive live deals)
+accounts/hidden.csv
+
 # Signal Scout run staging: request files, staged CSVs, headless run logs
 runs/
 
